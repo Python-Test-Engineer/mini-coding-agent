@@ -5,8 +5,8 @@ A real ReAct loop: type a request, and the agent uses its tools
 
     think -> tool call -> result -> repeat -> final answer
 
-LLM calls go to OpenRouter. The key is read from the OPENROUTER_API_KEY
-environment variable, or from ../OPENROUTER.txt if that is not set.
+LLM calls go to OpenRouter. Settings are loaded from the repository-root .env;
+explicit process environment variables take precedence.
 
 Run:  cd src && uv run agent.py "write a hello world script and run it"
 """
@@ -20,6 +20,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from ui import UI
 
 # One UI instance shares a single Rich console for the whole conversation.
@@ -29,6 +31,14 @@ ui = UI()
 ROOT_DIR = Path(__file__).resolve().parent.parent
 WORKDIR = ROOT_DIR / "work"
 WORKDIR.mkdir(exist_ok=True)
+
+
+def _load_dotenv() -> None:
+    """Load project settings without overriding explicitly exported values."""
+    load_dotenv(ROOT_DIR / ".env", override=False)
+
+
+_load_dotenv()
 
 
 # --------------------------------------------------------------------------
@@ -136,29 +146,16 @@ SYSTEM_PROMPT = (
 # LLM (OpenRouter, OpenAI-compatible chat completions)
 # --------------------------------------------------------------------------
 def _api_key() -> str:
-    # Environment variables override the private local file used for this demo.
+    # The project .env is loaded once; shell environment variables take precedence.
     key = os.environ.get("OPENROUTER_API_KEY")
     if key:
         return key
-    txt = Path(__file__).resolve().parent.parent / "OPENROUTER.txt"
-    if txt.exists():
-        for line in txt.read_text().splitlines():
-            if line.startswith("OPENROUTER_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"')
-    raise SystemExit("No OPENROUTER_API_KEY found (env var or ../OPENROUTER.txt).")
+    raise SystemExit("No OPENROUTER_API_KEY found (set it in the root .env or environment).")
 
 
 def _model() -> str:
-    # Keep the same precedence as the API key: environment, file, then fallback.
-    m = os.environ.get("MODEL")
-    if m:
-        return m
-    txt = Path(__file__).resolve().parent.parent / "OPENROUTER.txt"
-    if txt.exists():
-        for line in txt.read_text().splitlines():
-            if line.startswith("MODEL="):
-                return line.split("=", 1)[1].strip().strip('"')
-    return "deepseek/deepseek-v4.1-flash"
+    # Keep the same precedence as the API key: environment, .env, fallback.
+    return os.environ.get("MODEL") or "deepseek/deepseek-v4.1-flash"
 
 
 def chat(messages: list[dict]) -> dict:

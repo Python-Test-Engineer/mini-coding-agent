@@ -741,7 +741,7 @@
               </tr>
               <tr>
                 <td><code>run(command)</code></td>
-                <td>Runs a shell command with root <code>work/</code> as its current directory.</td>
+                <td>Runs in root <code>work/</code>; returns stdout, or stderr if stdout is empty (not the exit code).</td>
               </tr>
             </tbody>
           </table>
@@ -854,11 +854,11 @@
         </div>
         <dl class="config-list">
           <dt>API key</dt>
-          <dd><code>OPENROUTER_API_KEY</code> environment variable, then the matching line in root
-            <code>OPENROUTER.txt</code>.
+          <dd>Process environment first, then <code>OPENROUTER_API_KEY</code> in the project-root
+            <code>.env</code>, loaded with <code>python-dotenv</code> without overriding exported values.
           </dd>
           <dt>Model</dt>
-          <dd><code>MODEL</code> environment variable, then root <code>OPENROUTER.txt</code>, then
+          <dd><code>MODEL</code> process environment, then project-root <code>.env</code>, then
             <code>deepseek/deepseek-v4.1-flash</code>.
           </dd>
           <dt>Endpoint</dt>
@@ -867,7 +867,8 @@
           <dd>Root-level <code>work/</code>, anchored from <code>src/agent.py</code> so launch location does not change
             it.</dd>
           <dt>UI wording</dt>
-          <dd><code>src/ui.json</code> supplies the labels and Rich styles used by <code>src/ui.py</code>.</dd>
+          <dd><code>src/ui.json</code> supplies labels and Rich styles; <code>{model}</code> and <code>{step}</code>
+            are filled by <code>src/ui.py</code>.</dd>
         </dl>
       </section>
 
