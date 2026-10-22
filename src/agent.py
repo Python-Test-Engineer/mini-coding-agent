@@ -174,11 +174,38 @@ def chat(messages: list[dict]) -> dict:
         return json.loads(resp.read())
 
 
+def _accumulate_usage(metrics: dict, usage: dict) -> None:
+    prompt_tokens = usage.get("prompt_tokens")
+    if prompt_tokens is not None:
+        prompt_tokens = int(prompt_tokens)
+        metrics["last_input_tokens"] = prompt_tokens
+        metrics["total_input_tokens"] += prompt_tokens
+
+    completion_tokens = usage.get("completion_tokens")
+    if completion_tokens is not None:
+        metrics["total_output_tokens"] += int(completion_tokens)
+
+    cost = usage.get("cost")
+    if cost is not None:
+        metrics["total_cost"] += float(cost)
+
+    context_limit = usage.get("context_limit")
+    if context_limit is not None:
+        metrics["context_limit"] = int(context_limit)
+
+
 # --------------------------------------------------------------------------
 # THE LOOP
 # --------------------------------------------------------------------------
 def agent_loop(prompt: str, max_steps: int = 8) -> None:
     ui.show_start(prompt)
+    metrics = {
+        "last_input_tokens": 0,
+        "context_limit": None,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_cost": 0.0,
+    }
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -187,6 +214,7 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
 
     for step in range(1, max_steps + 1):
         reply = chat(messages)
+        _accumulate_usage(metrics, reply.get("usage") or {})
         msg = reply["choices"][0]["message"]
 
         if msg.get("content"):
@@ -195,7 +223,7 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
             ui.blank_line()
-            ui.show_done()
+            ui.show_done(metrics)
             return
 
         messages.append(msg)
@@ -218,7 +246,7 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
             )
         ui.blank_line()
 
-    ui.show_max_steps()
+    ui.show_max_steps(metrics)
 
 
 if __name__ == "__main__":

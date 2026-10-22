@@ -88,13 +88,41 @@ class UI:
     def blank_line(self) -> None:
         self.console.print()
 
-    def show_done(self) -> None:
+    def show_done(self, metrics: Any = None) -> None:
         self.console.rule(
             Text(self.labels["done"], style=self.styles["done"]),
             style=self.styles["done_rule"],
         )
+        self.footer(metrics)
 
-    def show_max_steps(self) -> None:
+    def show_max_steps(self, metrics: Any = None) -> None:
         self.console.print(
             Text(self.labels["max_steps"], style=self.styles["max_steps"])
+        )
+        self.footer(metrics)
+
+    def footer(self, metrics: Any = None) -> None:
+        def metric(name: str, default: Any) -> Any:
+            if isinstance(metrics, dict):
+                return metrics.get(name, default)
+            return getattr(metrics, name, default)
+
+        context = metric("last_input_tokens", 0) or 0
+        limit = metric("context_limit", None)
+        total_input = metric("total_input_tokens", 0) or 0
+        total_output = metric("total_output_tokens", 0) or 0
+        cost = metric("total_cost", 0.0) or 0.0
+        if limit:
+            percent = context / limit * 100
+            context_text = f"Context: {context:,}/{limit:,} tokens ({percent:.1f}%)"
+        else:
+            context_text = f"Context: {context:,} input tokens (limit unavailable)"
+
+        self.console.print(Text("-" * 72, style="dim"))
+        self.console.print(
+            Text(
+                f"{context_text}  |  Usage: {total_input:,} in / "
+                f"{total_output:,} out  |  Cost so far: ${cost:.6f}",
+                style="dim",
+            )
         )
