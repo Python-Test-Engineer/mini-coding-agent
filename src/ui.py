@@ -92,6 +92,36 @@ class UI:
             )
         )
 
+    def show_hook_error(self, hook_name: str, error: Exception) -> None:
+        """Render hook failures without letting extension code break the UI."""
+        self.console.print(
+            Panel(
+                f"{hook_name}: {error}",
+                title=Text(
+                    self.labels["hook_error"],
+                    style=self.styles["hook_error_title"],
+                ),
+                border_style=self.styles["hook_error_border"],
+                padding=(0, 1),
+            )
+        )
+
+    def show_lifecycle_event(self, event: str, detail: str = "") -> None:
+        """Render a compact, colour-coded trace line for a lifecycle event."""
+        event_labels = self.labels["lifecycle_events"]
+        event_styles = self.styles["lifecycle_events"]
+        # Keep a custom hook name readable even before it has UI configuration.
+        label = event_labels.get(event, event.replace("_", " "))
+        style = event_styles.get(event, self.styles["lifecycle_prefix"])
+        line = Text(self.labels["lifecycle_prefix"], style=self.styles["lifecycle_prefix"])
+        # ASCII punctuation keeps the trace legible in legacy Windows consoles.
+        line.append(" | ")
+        line.append(label, style=style)
+        if detail:
+            # Lifecycle traces should aid scanning, not dump a complete prompt or result.
+            line.append(f" - {detail[:100]}", style=self.styles["lifecycle_detail"])
+        self.console.print(line)
+
     def blank_line(self) -> None:
         self.console.print()
 

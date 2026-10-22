@@ -18,14 +18,21 @@ import os
 import subprocess
 import sys
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Callable
 
 from dotenv import load_dotenv
 
+from lifecycle import Hooks
 from ui import UI
 
 # One UI instance shares a single Rich console for the whole conversation.
 ui = UI()
+
+# Applications can replace this object with a Hooks subclass to observe every
+# turn.  Even the default Hooks object produces a visible lifecycle trace.
+hooks = Hooks()
 
 # Anchor generated files at the repository root, regardless of launch directory.
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -200,10 +207,67 @@ def _accumulate_usage(metrics: dict, usage: dict) -> None:
         metrics["context_limit"] = int(context_limit)
 
 
+@dataclass
+class AgentContext:
+    """State that lifecycle callbacks may inspect during one agent turn."""
+
+    request: str
+    messages: list[dict]
+    metrics: dict[str, Any]
+    ui: UI
+    step: int = 0
+
+
+def _call_hook(
+    lifecycle_hooks: Hooks,
+    hook_name: str,
+    context: AgentContext,
+    *args: Any,
+    detail: str = "",
+) -> None:
+    """Run one extension callback while keeping extension failures contained."""
+    # The UI owns presentation.  The agent provides only an event name and a
+    # short fact about the transition, so terminal wording stays configurable.
+    context.ui.show_lifecycle_event(hook_name, detail)
+    callback: Callable[..., None] | None = getattr(lifecycle_hooks, hook_name, None)
+    if callback is None:
+        return
+    try:
+        callback(context, *args)
+    except Exception as error:
+        # A plugin is optional: report its failure through the UI, then allow
+        # the host-controlled agent loop to continue.  Do not recurse into
+        # ``on_error`` if that callback itself is the failed hook.
+        context.ui.show_hook_error(hook_name, error)
+
+
+def _report_error(
+    lifecycle_hooks: Hooks,
+    context: AgentContext,
+    error: Exception,
+    phase: str,
+) -> None:
+    """Tell hooks about a caught host error without risking recursive hooks."""
+    context.ui.show_lifecycle_event("on_error", f"{phase}: {error}")
+    callback: Callable[..., None] | None = getattr(lifecycle_hooks, "on_error", None)
+    if callback is None:
+        return
+    try:
+        callback(context, error, phase)
+    except Exception as hook_error:
+        context.ui.show_hook_error("on_error", hook_error)
+
+
 # --------------------------------------------------------------------------
 # THE LOOP
 # --------------------------------------------------------------------------
-def agent_loop(prompt: str, max_steps: int = 8) -> None:
+def agent_loop(
+    prompt: str,
+    max_steps: int = 8,
+    lifecycle_hooks: Hooks | None = None,
+) -> None:
+    """Run one request through the agent, notifying optional lifecycle hooks."""
+    active_hooks = lifecycle_hooks if lifecycle_hooks is not None else hooks
     ui.show_start(prompt)
     # Messages are the shared conversation state sent again on every model call.
     metrics = {
@@ -218,17 +282,39 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
+    context = AgentContext(prompt, messages, metrics, ui)
+    _call_hook(active_hooks, "before_input", context, prompt, detail=f"{len(prompt)} characters")
+    _call_hook(active_hooks, "before_loop", context, detail="waiting for a model response")
 
     for step in range(1, max_steps + 1):
+        context.step = step
+        _call_hook(
+            active_hooks,
+            "before_brain_request",
+            context,
+            messages,
+            detail=f"step {step} - {len(messages)} messages",
+        )
         reply = chat(messages)
         _accumulate_usage(metrics, reply.get("usage") or {})
         msg = reply["choices"][0]["message"]
+        response_tool_count = len(msg.get("tool_calls") or [])
+        _call_hook(
+            active_hooks,
+            "after_brain_response",
+            context,
+            msg,
+            detail=f"step {step} - {response_tool_count} tool call(s)",
+        )
 
         if msg.get("content"):
             ui.show_thought(step, msg["content"])
 
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
+            output = msg.get("content") or ""
+            _call_hook(active_hooks, "after_loop", context, output, detail="final response received")
+            _call_hook(active_hooks, "after_input", context, prompt, output, detail="request complete")
             ui.blank_line()
             ui.show_done(metrics)
             return
@@ -242,19 +328,45 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
             except json.JSONDecodeError:
                 # Return malformed arguments as an empty object so the loop can continue.
                 args = {}
+                _report_error(
+                    active_hooks,
+                    context,
+                    ValueError(f"Malformed arguments for tool {name}"),
+                    "tool_arguments",
+                )
             ui.show_tool(name, args)
             if name == "write_file":
                 ui.show_code(args.get("content", ""))
+            _call_hook(
+                active_hooks,
+                "before_tool_execute",
+                context,
+                name,
+                args,
+                detail=f"{name} - {len(args)} argument(s)",
+            )
             try:
                 result = TOOLS[name](**args)
             except Exception as e:  # surface tool errors back to the model
+                _report_error(active_hooks, context, e, "tool_execute")
                 result = f"ERROR: {e}"
+            tool_status = "failed" if result.startswith("ERROR:") else "complete"
+            _call_hook(
+                active_hooks,
+                "after_tool_execute",
+                context,
+                name,
+                result,
+                detail=f"{name} - {tool_status}",
+            )
             ui.show_result(result)
             messages.append(
                 {"role": "tool", "tool_call_id": tc["id"], "content": result}
             )
         ui.blank_line()
 
+    _call_hook(active_hooks, "after_loop", context, "", detail="maximum steps reached")
+    _call_hook(active_hooks, "after_input", context, prompt, "", detail="request complete")
     ui.show_max_steps(metrics)
 
 
@@ -263,4 +375,10 @@ if __name__ == "__main__":
     prompt = " ".join(sys.argv[1:]).strip()
     if not prompt:
         prompt = ui.prompt(_model()).strip()
-    agent_loop(prompt)
+    # A command-line run is a short session containing one agent turn.
+    session_context = AgentContext(prompt, [], {}, ui)
+    _call_hook(hooks, "on_session_start", session_context, detail="command-line session")
+    try:
+        agent_loop(prompt)
+    finally:
+        _call_hook(hooks, "on_session_stop", session_context, detail="command-line session")
