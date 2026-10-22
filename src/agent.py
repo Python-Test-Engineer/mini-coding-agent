@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -175,8 +176,17 @@ def chat(messages: list[dict]) -> dict:
             "Content-Type": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        # HTTPError also contains the response body. Show the provider's reason
+        # so students can diagnose configuration errors instead of a traceback.
+        detail = exc.read().decode("utf-8", errors="replace").strip()
+        raise SystemExit(
+            f"OpenRouter HTTP {exc.code} (model: {_model()}): "
+            f"{detail or exc.reason}"
+        ) from None
 
 
 def _accumulate_usage(metrics: dict, usage: dict) -> None:
