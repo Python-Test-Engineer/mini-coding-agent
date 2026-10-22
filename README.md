@@ -26,21 +26,26 @@ where the agent is launched.
 
 ## Configure and run
 
-From the repository root, set the API key in PowerShell and launch the demo:
+Add the following settings to the repository-root `.env` file (the file is
+ignored by Git):
+
+```dotenv
+OPENROUTER_API_KEY=your-openrouter-api-key
+MODEL=deepseek/deepseek-v4.1-flash
+```
+
+Then launch the demo from the repository root:
 
 ```powershell
-$env:OPENROUTER_API_KEY = "your-openrouter-api-key"
 cd src
 uv run agent.py "write a hello world script and run it"
 ```
 
-`uv run` installs the declared `rich` dependency if needed. You can also set
-`OPENROUTER_API_KEY` in your environment before launching. If the key is not
-set there, the app looks for an `OPENROUTER_API_KEY=` entry in the repository
-root's `OPENROUTER.txt` file. Keep that file private and never commit API keys.
+`uv run` installs the project dependencies if needed. Shell environment
+variables override values in `.env`. Keep credentials private and never commit
+the `.env` file.
 
-The model is selected from the `MODEL` environment variable, then the `MODEL=`
-entry in `OPENROUTER.txt`; if neither is set, the app uses
+If `MODEL` is omitted from both the environment and `.env`, the app uses
 `deepseek/deepseek-v4.1-flash`. To start without a command-line request, run:
 
 ```powershell
