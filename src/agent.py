@@ -1,0 +1,228 @@
+"""Mini coding agent — a tiny functional harness for the AI-agents talk.
+
+A real ReAct loop: type a request, and the agent uses its tools
+(write/edit/read files, run commands) until it has an answer.
+
+    think -> tool call -> result -> repeat -> final answer
+
+LLM calls go to OpenRouter. The key is read from the OPENROUTER_API_KEY
+environment variable, or from ../OPENROUTER.txt if that is not set.
+
+Run:  cd src && uv run agent.py "write a hello world script and run it"
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import urllib.request
+from pathlib import Path
+
+from ui import UI
+
+ui = UI()
+
+WORKDIR = Path("work")
+WORKDIR.mkdir(exist_ok=True)
+
+
+# --------------------------------------------------------------------------
+# TOOLS — the only things the agent can do (mirrors real coding agents)
+# --------------------------------------------------------------------------
+def write_file(path: str, content: str) -> str:
+    (WORKDIR / path).write_text(content)
+    return f"Created {path}"
+
+
+def edit_file(path: str, old: str, new: str) -> str:
+    p = WORKDIR / path
+    p.write_text(p.read_text().replace(old, new, 1))
+    return f"Edited {path}: {old!r} -> {new!r}"
+
+
+def read_file(path: str) -> str:
+    return (WORKDIR / path).read_text()
+
+
+def run(command: str) -> str:
+    out = subprocess.run(
+        command, shell=True, capture_output=True, text=True, cwd=WORKDIR
+    )
+    return out.stdout.strip() or out.stderr.strip()
+
+
+TOOLS = {
+    "write_file": write_file,
+    "edit_file": edit_file,
+    "read_file": read_file,
+    "run": run,
+}
+
+# OpenAI function-calling schema for the tools
+TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Create or overwrite a file in the work dir.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Replace the first occurrence of old with new in a file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "old": {"type": "string"},
+                    "new": {"type": "string"},
+                },
+                "required": ["path", "old", "new"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read a file in the work dir.",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run",
+            "description": "Run a shell command in the work dir (e.g. 'python hello.py').",
+            "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
+            },
+        },
+    },
+]
+
+SYSTEM_PROMPT = (
+    "You are a minimal coding agent. You can write, edit and read files "
+    "in the work directory, and run shell commands there. Work step by step: "
+    "create the script, run it, fix any errors, and confirm the final output. "
+    "Finish with a short plain-text summary of what you did."
+)
+
+
+# --------------------------------------------------------------------------
+# LLM (OpenRouter, OpenAI-compatible chat completions)
+# --------------------------------------------------------------------------
+def _api_key() -> str:
+    key = os.environ.get("OPENROUTER_API_KEY")
+    if key:
+        return key
+    txt = Path(__file__).resolve().parent.parent / "OPENROUTER.txt"
+    if txt.exists():
+        for line in txt.read_text().splitlines():
+            if line.startswith("OPENROUTER_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"')
+    raise SystemExit("No OPENROUTER_API_KEY found (env var or ../OPENROUTER.txt).")
+
+
+def _model() -> str:
+    m = os.environ.get("MODEL")
+    if m:
+        return m
+    txt = Path(__file__).resolve().parent.parent / "OPENROUTER.txt"
+    if txt.exists():
+        for line in txt.read_text().splitlines():
+            if line.startswith("MODEL="):
+                return line.split("=", 1)[1].strip().strip('"')
+    return "deepseek/deepseek-v4.1-flash"
+
+
+def chat(messages: list[dict]) -> dict:
+    body = json.dumps(
+        {
+            "model": _model(),
+            "messages": messages,
+            "tools": TOOL_SCHEMAS,
+        }
+    ).encode()
+    req = urllib.request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {_api_key()}",
+            "Content-Type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        return json.loads(resp.read())
+
+
+# --------------------------------------------------------------------------
+# THE LOOP
+# --------------------------------------------------------------------------
+def agent_loop(prompt: str, max_steps: int = 8) -> None:
+    ui.show_start(prompt)
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+    ]
+
+    for step in range(1, max_steps + 1):
+        reply = chat(messages)
+        msg = reply["choices"][0]["message"]
+
+        if msg.get("content"):
+            ui.show_thought(step, msg["content"])
+
+        tool_calls = msg.get("tool_calls") or []
+        if not tool_calls:
+            ui.blank_line()
+            ui.show_done()
+            return
+
+        messages.append(msg)
+        for tc in tool_calls:
+            name = tc["function"]["name"]
+            try:
+                args = json.loads(tc["function"]["arguments"] or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            ui.show_tool(name, args)
+            if name == "write_file":
+                ui.show_code(args.get("content", ""))
+            try:
+                result = TOOLS[name](**args)
+            except Exception as e:  # surface tool errors back to the model
+                result = f"ERROR: {e}"
+            ui.show_result(result)
+            messages.append(
+                {"role": "tool", "tool_call_id": tc["id"], "content": result}
+            )
+        ui.blank_line()
+
+    ui.show_max_steps()
+
+
+if __name__ == "__main__":
+    prompt = " ".join(sys.argv[1:]).strip()
+    if not prompt:
+        prompt = ui.prompt(_model()).strip()
+    agent_loop(prompt)

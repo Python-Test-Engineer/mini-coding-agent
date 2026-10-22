@@ -1,0 +1,32 @@
+{
+  "labels": {
+    "model": "[{model}]",
+    "input": "Request",
+    "input_indicator": "›",
+    "header": "mini coding agent",
+    "request": "request",
+    "thought": "Step {step} — thought",
+    "tool": "tool",
+    "result": "result",
+    "done": "done",
+    "max_steps": "max steps reached"
+  },
+  "styles": {
+    "input_model": "bold white",
+    "input_label": "bold green",
+    "input_indicator": "bold green",
+    "header": "bold cyan",
+    "header_rule": "cyan",
+    "request_title": "bold",
+    "request_border": "yellow",
+    "thought_title": "bold",
+    "thought_border": "magenta",
+    "tool_label": "bold green",
+    "code_theme": "monokai",
+    "result_title": "bold",
+    "result_border": "green",
+    "done": "bold cyan",
+    "done_rule": "cyan",
+    "max_steps": "bold red"
+  }
+}

@@ -1,0 +1,19 @@
+.env
+OPENROUTER.txt
+
+
+# --- Python / uv ---
+.venv/
+**/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Data / live snapshots (generated, not tracked) ---
+web_app/data/
+live_bikeshare_*.csv
+
+# --- Editor / OS ---
+
+.DS_Store
+Thumbs.db    
