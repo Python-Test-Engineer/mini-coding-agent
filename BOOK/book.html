@@ -142,6 +142,8 @@
 
     main {
       min-width: 0;
+      container-type: inline-size;
+      overflow-wrap: anywhere;
     }
 
     section {
@@ -177,8 +179,12 @@
       font-weight: 500;
     }
 
+    #chapter-01 h1 {
+      font-size: clamp(32px, 6cqi, 92px);
+    }
+
     .dek {
-      max-width: 680px;
+      max-width: none;
       margin: 0;
       color: var(--muted);
       font-size: 18px;
@@ -238,7 +244,7 @@
     }
 
     .section-intro {
-      max-width: 730px;
+      max-width: none;
       margin: 9px 0 0;
       color: var(--muted);
       font-size: 15px;
@@ -316,7 +322,7 @@
     }
 
     .loop-return::before {
-      width: 75%;
+      flex: 1 0 32px;
       height: 15px;
       border-bottom: 2px solid var(--accent);
       border-left: 2px solid var(--accent);
@@ -331,13 +337,18 @@
 
     .two-column {
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 25px;
-      align-items: start;
+      align-items: stretch;
+    }
+
+    .two-column > * {
+      min-width: 0;
     }
 
     .tool-table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       background: var(--surface);
       font-size: 13px;
@@ -449,6 +460,7 @@
     }
 
     .code-panel {
+      min-width: 0;
       overflow: hidden;
       background: var(--code);
       color: var(--code-ink);
@@ -524,7 +536,7 @@
 
     .message-example {
       display: grid;
-      grid-template-columns: 125px minmax(0, 1fr);
+      grid-template-columns: max-content minmax(0, 1fr);
       border-top: 1px solid var(--line);
     }
 
@@ -547,7 +559,7 @@
 
     .config-list {
       display: grid;
-      grid-template-columns: 150px minmax(0, 1fr);
+      grid-template-columns: minmax(180px, .3fr) minmax(0, 1fr);
       margin: 0;
       border-top: 1px solid var(--line);
     }
@@ -659,6 +671,9 @@
     .rail {
       max-height: calc(100vh - 60px);
       overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-gutter: stable;
+      padding-right: 12px;
     }
 
     .brand {
@@ -707,12 +722,14 @@
       font-size: 22px;
     }
 
-    /* Let enlarged section labels keep their own track instead of colliding. */
+    /* Keep section labels above the heading so the text uses the full width. */
     .section-head {
-      grid-template-columns: max-content minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
     }
 
     .section-number {
+      padding-top: 0;
       white-space: nowrap;
     }
 
@@ -788,6 +805,180 @@
       gap: 8px 16px;
     }
 
+    /* Adapt components to their available content width, including the rail. */
+    .loop-figure {
+      container-type: inline-size;
+    }
+
+    .learning-row,
+    .step-grid,
+    .metric-line {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .learning-item > span {
+      min-width: 0;
+    }
+
+    .learning-item b,
+    .brand-mark {
+      flex-shrink: 0;
+    }
+
+    .handoff-list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    pre {
+      max-width: 100%;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .footer-note {
+      flex-wrap: wrap;
+    }
+
+    .contents a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    @container (max-width: 1100px) {
+      h2 {
+        font-size: clamp(38px, 6cqi, 70px);
+      }
+
+      .two-column,
+      .final-band {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .step-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @container (max-width: 900px) {
+      .loop-track {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+      }
+
+      .loop-track li {
+        min-height: 0;
+      }
+
+      .loop-track li:not(:last-child)::after {
+        top: auto;
+        right: 20px;
+        bottom: -28px;
+        transform: rotate(90deg);
+      }
+    }
+
+    @container (max-width: 700px) {
+      .learning-row,
+      .step-grid,
+      .metric-line {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .config-list {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .config-list dt {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      .message-example {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .message-example .message-role {
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+    }
+
+    @media (max-width: 1000px) {
+      .layout {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 24px clamp(16px, 4vw, 32px) 48px;
+        gap: 36px;
+      }
+
+      .rail {
+        position: static;
+        max-height: none;
+        overflow: visible;
+        padding: 0 0 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .contents {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px 20px;
+      }
+
+      .contents .toc-chapter {
+        grid-column: 1 / -1;
+      }
+
+      .rail-note {
+        margin-top: 20px;
+      }
+
+      .hero h1 {
+        font-size: clamp(46px, 8vw, 80px);
+      }
+
+      .dek {
+        font-size: clamp(26px, 3.6vw, 36px);
+      }
+
+      .section-intro {
+        font-size: clamp(24px, 3vw, 30px);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .contents {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .lesson-section {
+        padding: 32px 0;
+      }
+
+      .loop-figure,
+      .final-band {
+        padding: 16px;
+      }
+
+      .tool-table th,
+      .tool-table td {
+        padding: 10px 8px;
+      }
+
+      .loop-return {
+        letter-spacing: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+    }
+
     @media print {
       body {
         background: white;
@@ -847,7 +1038,7 @@
     <main>
       <header class="hero" id="chapter-01">
         <div class="eyebrow">Chapter 01 <span aria-hidden="true">/</span> Agent foundations</div>
-        <h1>A coding agent<br>is a <em>loop.</em></h1>
+        <h1>A coding agent is a <em>loop.</em></h1>
         <p class="dek">A model proposes the next action. Python executes it, returns the result, and asks the model what
           to do next.</p>
         <div class="learning-row" aria-label="Learning goals">
