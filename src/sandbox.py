@@ -8,12 +8,15 @@ container or VM runner before accepting untrusted prompts.
 
 from __future__ import annotations
 
+import json
 import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
+from uuid import uuid4
 
 from lifecycle import Hooks
 
@@ -47,53 +50,118 @@ class SandboxEvent:
     timestamp: float = field(default_factory=time.monotonic)
 
 
-class SandboxWorkspace:
-    """Contain agent file operations beneath one explicitly chosen directory."""
+class EventLog:
+    """Write one JSON object per lifecycle event beneath the approved log root."""
 
     def __init__(self, root: Path) -> None:
-        # Resolve once so subsequent containment checks compare absolute paths.
         self.root = root.resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        self.path = self.root / f"agent-{stamp}-{uuid4().hex[:8]}.jsonl"
+        # Create the file at session setup, even before the first model event.
+        self.path.touch(exist_ok=False)
+
+    def write(self, event: SandboxEvent) -> None:
+        """Append a portable JSONL audit record with no terminal formatting."""
+        payload = {
+            "event": event.kind,
+            "detail": event.detail,
+            "step": event.step,
+            "monotonic_seconds": event.timestamp,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with self.path.open("a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+class SandboxWorkspace:
+    """Allow writes only in ``work/`` and ``logs/``, while permitting reads."""
+
+    def __init__(self, root: Path, log_root: Path | None = None) -> None:
+        # ``root`` remains the command runner's current directory: work/.
+        self.root = root.resolve()
+        self.log_root = (log_root or self.root.parent / "logs").resolve()
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.log_root.mkdir(parents=True, exist_ok=True)
         self.events: list[SandboxEvent] = []
+        self.event_log = EventLog(self.log_root)
 
     def record(self, kind: str, detail: str, step: int | None = None) -> None:
         """Keep a bounded-in-scope audit trail without mutating agent messages."""
-        self.events.append(SandboxEvent(kind, detail, step))
+        event = SandboxEvent(kind, detail, step)
+        self.events.append(event)
+        self.event_log.write(event)
 
-    def resolve_path(self, requested_path: str) -> Path:
-        """Return a safe workspace path or reject an absolute/traversing path."""
-        candidate = Path(requested_path)
-        # A drive-qualified path such as ``C:notes.txt`` is not absolute on
-        # Windows, but it still must not be interpreted inside this workspace.
-        if candidate.is_absolute() or candidate.drive:
-            raise SandboxPathError("path must be relative to the sandbox workspace")
+    def _is_writable_path(self, candidate: Path) -> bool:
+        """Return whether a resolved path is contained by either writable root."""
+        return any(
+            self._is_beneath(candidate, allowed_root)
+            for allowed_root in (self.root, self.log_root)
+        )
 
-        # ``strict=False`` resolves ``..`` even when the requested file is new.
-        resolved = (self.root / candidate).resolve(strict=False)
+    @staticmethod
+    def _is_beneath(candidate: Path, root: Path) -> bool:
+        """Use Path's containment operation instead of unsafe string prefixes."""
         try:
-            resolved.relative_to(self.root)
-        except ValueError as error:
-            raise SandboxPathError("path escapes the sandbox workspace") from error
+            candidate.relative_to(root)
+        except ValueError:
+            return False
+        return True
+
+    def resolve_write_path(self, requested_path: str) -> Path:
+        """Return a work/log path or reject every other write/edit target."""
+        candidate = Path(requested_path)
+        if candidate.is_absolute():
+            resolved = candidate.resolve(strict=False)
+        elif candidate.drive:
+            raise SandboxPathError("write/edit path must stay in work or logs")
+        elif candidate.parts and candidate.parts[0].lower() == "logs":
+            resolved = (self.log_root / Path(*candidate.parts[1:])).resolve(strict=False)
+        elif candidate.parts and candidate.parts[0].lower() == "work":
+            resolved = (self.root / Path(*candidate.parts[1:])).resolve(strict=False)
+        else:
+            # Bare relative paths preserve the workshop's usual ``hello.py`` API.
+            resolved = (self.root / candidate).resolve(strict=False)
+
+        if not self._is_writable_path(resolved):
+            raise SandboxPathError("write/edit path must stay in work or logs")
         return resolved
 
+    def resolve_path(self, requested_path: str) -> Path:
+        """Compatibility alias for callers checking a write/edit target."""
+        return self.resolve_write_path(requested_path)
+
+    def resolve_read_path(self, requested_path: str) -> Path:
+        """Resolve any readable path; relative paths remain relative to work/."""
+        candidate = Path(requested_path)
+        if candidate.is_absolute():
+            return candidate.resolve(strict=False)
+        if candidate.drive:
+            # A drive-relative path has surprising Windows semantics, so require
+            # an explicit absolute path for an outside-workspace read.
+            raise SandboxPathError("use an absolute path to read another drive")
+        if candidate.parts and candidate.parts[0].lower() == "logs":
+            return (self.log_root / Path(*candidate.parts[1:])).resolve(strict=False)
+        return (self.root / candidate).resolve(strict=False)
+
     def write_file(self, requested_path: str, content: str) -> str:
-        """Write UTF-8 text after proving its target remains in the workspace."""
-        target = self.resolve_path(requested_path)
+        """Write UTF-8 text only after proving its target is in work/logs."""
+        target = self.resolve_write_path(requested_path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         return f"Created {requested_path}"
 
     def edit_file(self, requested_path: str, old: str, new: str) -> str:
-        """Replace the first matching string in a contained UTF-8 text file."""
-        target = self.resolve_path(requested_path)
+        """Replace text only after proving its target is in work/logs."""
+        target = self.resolve_write_path(requested_path)
         original = target.read_text(encoding="utf-8")
         updated = original.replace(old, new, 1)
         target.write_text(updated, encoding="utf-8")
         return f"Edited {requested_path}: {old!r} -> {new!r}"
 
     def read_file(self, requested_path: str) -> str:
-        """Read UTF-8 text after proving its target remains in the workspace."""
-        return self.resolve_path(requested_path).read_text(encoding="utf-8")
+        """Read UTF-8 text from any readable absolute path or work-relative path."""
+        return self.resolve_read_path(requested_path).read_text(encoding="utf-8")
 
 
 class ConstrainedLocalRunner:
@@ -140,6 +208,15 @@ class ConstrainedLocalRunner:
             raise SandboxCommandError(
                 f"command {arguments[0]!r} is not allowed by the local runner"
             )
+        # Do not let the command line point the interpreter or test runner at
+        # a parent/absolute path. This constrains command *arguments*; a local
+        # Python process still needs a container/VM for OS-level isolation.
+        if "-c" in arguments:
+            raise SandboxCommandError("inline Python commands are not allowed")
+        for argument in arguments[1:]:
+            candidate = Path(argument)
+            if candidate.is_absolute() or candidate.drive or ".." in candidate.parts:
+                raise SandboxCommandError("command paths must stay in work")
         return arguments
 
     def _bounded_output(self, value: str) -> str:

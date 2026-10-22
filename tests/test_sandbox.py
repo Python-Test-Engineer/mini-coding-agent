@@ -1,5 +1,6 @@
 """Verify the host enforces the constrained local sandbox policy."""
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -38,12 +39,39 @@ class SandboxWorkspaceTests(unittest.TestCase):
         self.assertTrue((self.workspace.root / "nested" / "hello.txt").is_file())
 
     def test_rejects_parent_traversal(self):
-        with self.assertRaisesRegex(SandboxPathError, "escapes"):
-            self.workspace.resolve_path("../outside.txt")
+        with self.assertRaisesRegex(SandboxPathError, "work or logs"):
+            self.workspace.write_file("../outside.txt", "blocked")
 
-    def test_rejects_absolute_paths(self):
-        with self.assertRaisesRegex(SandboxPathError, "relative"):
-            self.workspace.resolve_path(str(Path(self.temp_dir.name).resolve()))
+    def test_rejects_write_and_edit_outside_work_or_logs(self):
+        outside = Path(self.temp_dir.name) / "outside.txt"
+        outside.write_text("original", encoding="utf-8")
+
+        with self.assertRaisesRegex(SandboxPathError, "work or logs"):
+            self.workspace.write_file(str(outside), "blocked")
+        with self.assertRaisesRegex(SandboxPathError, "work or logs"):
+            self.workspace.edit_file(str(outside), "original", "blocked")
+
+        self.assertEqual(outside.read_text(encoding="utf-8"), "original")
+        self.assertFalse(hasattr(self.workspace, "delete_file"))
+
+    def test_allows_logs_and_an_explicit_external_read(self):
+        self.workspace.write_file("logs/agent-note.txt", "event note")
+        outside = Path(self.temp_dir.name) / "readable.txt"
+        outside.write_text("read only", encoding="utf-8")
+
+        self.assertEqual(
+            (self.workspace.log_root / "agent-note.txt").read_text(encoding="utf-8"),
+            "event note",
+        )
+        self.assertEqual(self.workspace.read_file(str(outside)), "read only")
+
+    def test_record_writes_jsonl_events_under_logs(self):
+        self.workspace.record("lifecycle.before_loop", "waiting", step=1)
+
+        lines = self.workspace.event_log.path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(json.loads(lines[0])["event"], "lifecycle.before_loop")
+        self.assertEqual(self.workspace.event_log.path.parent, self.workspace.log_root)
 
 
 class ConstrainedLocalRunnerTests(unittest.TestCase):
@@ -70,6 +98,12 @@ class ConstrainedLocalRunnerTests(unittest.TestCase):
     def test_rejects_commands_outside_the_allowlist(self):
         with self.assertRaisesRegex(SandboxCommandError, "not allowed"):
             self.runner.run("git status")
+
+    def test_rejects_parent_paths_and_inline_python(self):
+        with self.assertRaisesRegex(SandboxCommandError, "paths must stay"):
+            self.runner.run("python ../outside.py")
+        with self.assertRaisesRegex(SandboxCommandError, "inline Python"):
+            self.runner.run('python -c "print(1)"')
 
     def test_uses_no_shell_and_bounds_output(self):
         completed = subprocess.CompletedProcess(
@@ -119,8 +153,8 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
                             {
                                 "id": "call_path",
                                 "function": {
-                                    "name": "read_file",
-                                    "arguments": '{"path": "../outside.txt"}',
+                                    "name": "write_file",
+                                    "arguments": '{"path": "../outside.txt", "content": "blocked"}',
                                 },
                             }
                         ],
@@ -137,7 +171,64 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
 
         output = console.export_text()
         self.assertIn("path rejected", output)
-        self.assertIn("path escapes the sandbox workspace", output)
+        self.assertIn("write/edit path must stay in work or logs", output)
+        self.assertIn("Finished", output)
+
+    def test_agent_blocks_external_write_edit_and_delete_requests(self):
+        console = Console(record=True, width=120)
+        protected_file = Path(agent.ROOT_DIR) / "README.md"
+        original = protected_file.read_text(encoding="utf-8")
+        tool_reply = {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_write",
+                                "function": {
+                                    "name": "write_file",
+                                    "arguments": json.dumps(
+                                        {"path": str(protected_file), "content": "blocked"}
+                                    ),
+                                },
+                            },
+                            {
+                                "id": "call_edit",
+                                "function": {
+                                    "name": "edit_file",
+                                    "arguments": json.dumps(
+                                        {
+                                            "path": str(protected_file),
+                                            "old": "mini-coding-agent",
+                                            "new": "blocked",
+                                        }
+                                    ),
+                                },
+                            },
+                            {
+                                "id": "call_delete",
+                                "function": {
+                                    "name": "delete_file",
+                                    "arguments": json.dumps({"path": str(protected_file)}),
+                                },
+                            },
+                        ],
+                    }
+                }
+            ]
+        }
+        final_reply = {"choices": [{"message": {"content": "Finished", "tool_calls": []}}]}
+
+        with patch("agent.ui", UI(console=console)), patch(
+            "agent.chat", side_effect=[tool_reply, final_reply]
+        ):
+            agent.agent_loop("try external file operations")
+
+        output = console.export_text()
+        self.assertEqual(protected_file.read_text(encoding="utf-8"), original)
+        self.assertGreaterEqual(output.count("write/edit path must stay in work or logs"), 2)
+        self.assertIn("delete_file", output)
         self.assertIn("Finished", output)
 
 

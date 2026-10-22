@@ -1343,7 +1343,7 @@ uv run agent.py "write a hello world script and run it"</code></pre>
             <h2>Each callback sees the current turn.</h2>
             <p class="section-intro"><code>Hooks</code> is a no-op base class in <code>src/lifecycle.py</code>.
               Students override only the callbacks they need. Each receives an <code>AgentContext</code> with the request,
-              live message history, usage metrics, active UI, contained workspace, and current model step.</p>
+              live message history, usage metrics, active UI, workspace file policy and event log, and current model step.</p>
           </div>
         </div>
         <table class="tool-table">
@@ -1460,28 +1460,32 @@ uv run agent.py "write a hello world script and run it"</code></pre>
           <table class="tool-table">
             <thead><tr><th>Component</th><th>Host-enforced behaviour</th></tr></thead>
             <tbody>
-              <tr><td><code>SandboxWorkspace</code></td><td>Allows only relative paths that resolve under root <code>sandbox-work/</code>.</td></tr>
-              <tr><td>Path policy</td><td>Rejects absolute, drive-qualified, and parent-traversal paths before any file operation.</td></tr>
-              <tr><td><code>ConstrainedLocalRunner</code></td><td>Uses <code>shell=False</code>, an allowlist, a timeout, and bounded output.</td></tr>
-              <tr><td><code>SandboxAuditHooks</code></td><td>Records sandbox session, requested tool, completed tool, and caught-error events.</td></tr>
+              <tr><td><code>write_file</code> / <code>edit_file</code></td><td>Write only under repository-root <code>work/</code> or <code>logs/</code>; traversal outside those roots is rejected.</td></tr>
+              <tr><td><code>read_file</code></td><td>Reads work-relative paths or any readable absolute path. The agent registers no delete tool.</td></tr>
+              <tr><td><code>ConstrainedLocalRunner</code></td><td>Uses <code>shell=False</code>, an allowlist, <code>work/</code>, a timeout, and bounded output.</td></tr>
+              <tr><td>JSONL event log</td><td>Appends each lifecycle event with its detail, step, monotonic time, and UTC timestamp under <code>logs/</code>.</td></tr>
             </tbody>
           </table>
           <aside class="callout">
             <span class="callout-label">Constrained is not isolated</span>
-            <p>The runner still starts processes under the current user and does not disable their network access. It is
-              appropriate only for trusted workshop prompts. A container or VM runtime is needed for a security boundary.</p>
+            <p>These path rules apply to the registered file tools. The runner still starts Python under the current
+              user, so a script can write or delete files directly and can use the network. Use trusted prompts only;
+              a container or VM must enforce the same roots against executed code.</p>
           </aside>
         </div>
         <div class="code-panel" aria-label="Sandbox lifecycle example">
           <div class="code-caption"><span>Unsafe path through the real loop</span><span>host error</span></div>
-          <pre><code>tool read_file({"path": "../outside.txt"})
-sandbox | [lock] path rejected - path escapes the sandbox workspace
-lifecycle | [!] host error - tool_execute: path escapes the sandbox workspace
-result ERROR: path escapes the sandbox workspace</code></pre>
+          <pre><code>tool write_file({"path": "../outside.txt"})
+sandbox | [lock] path rejected - write/edit path must stay in work or logs
+lifecycle | [!] host error - tool_execute: write/edit path must stay in work or logs
+result ERROR: write/edit path must stay in work or logs
+
+logs/agent-...jsonl
+{"event":"lifecycle.before_tool_execute","step":1,...}</code></pre>
         </div>
         <p class="section-intro"><code>UI.show_sandbox_status()</code> formats these status lines from the
           <code>sandbox_events</code> labels and styles in <code>ui.json</code>. The sandbox module itself does not
-          print terminal formatting.</p>
+          print terminal formatting; every lifecycle transition is appended as JSONL under <code>logs/</code>.</p>
       </section>
 
       <section class="lesson-section" id="hooks-tests">
@@ -1503,14 +1507,16 @@ after_brain_response
 after_loop
 after_input
 
-reject ../outside.txt
+reject external write/edit
+allow readable absolute path
+no delete tool
 reject shell operators
 bound output and timeout</code></pre>
           </div>
           <aside class="callout">
             <span class="callout-label">Failure isolation</span>
             <p>A broken hook produces a lifecycle error panel while the mocked agent still reaches its final response.
-              An unsafe path is also returned as an <code>ERROR:</code> tool result, so the model can continue safely.</p>
+              Tests also verify that external write/edit attempts are rejected and leave the target unchanged.</p>
           </aside>
         </div>
         <div class="final-band">
@@ -1521,8 +1527,8 @@ bound output and timeout</code></pre>
           </div>
           <div>
             <h3>Chapter 02 checklist</h3>
-            <p><code>Hooks</code> defines the contract; the UI owns colours and wording; <code>SandboxWorkspace</code>
-              and the constrained runner enforce local policy; tests verify the ordering and boundaries.</p>
+            <p><code>Hooks</code> defines the contract; every event is logged under <code>logs/</code>; the UI owns
+              colours and wording; host file tools enforce the <code>work/</code> and <code>logs/</code> write roots.</p>
           </div>
         </div>
       </section>

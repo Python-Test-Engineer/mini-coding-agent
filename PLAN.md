@@ -15,7 +15,8 @@ enforced by the code that resolves file paths and starts processes.
 
 The repository now implements the local, host-enforced stages of this plan:
 
-- `SandboxWorkspace` contains file operations in `sandbox-work/`.
+- `SandboxWorkspace` allows write/edit operations only in `work/` and `logs/`.
+- `EventLog` writes every lifecycle transition as JSONL beneath `logs/`.
 - `ConstrainedLocalRunner` rejects shell operators and unapproved commands,
   uses `shell=False`, and applies timeout and output limits.
 - `SandboxAuditHooks` records session, tool, and caught-error events.
@@ -88,8 +89,8 @@ tool request to filesystem or process work. Hooks surround it and report on it.
 
 ## Phase 1: make the current host tools safe by construction
 
-Create a small `SandboxWorkspace` class, initially backed by a local directory
-under the repository, for example `sandbox-work/`.
+Create a small `SandboxWorkspace` class backed by repository-root `work/` and
+`logs/` directories.
 
 Its responsibilities are:
 

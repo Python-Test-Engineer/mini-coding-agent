@@ -41,11 +41,12 @@ ui = UI()
 # can replace it with their own Hooks subclass when they need other behaviour.
 hooks = SandboxAuditHooks()
 
-# Keep generated files in a dedicated directory rather than the general work/
-# folder. Path checks in SandboxWorkspace enforce this boundary for file tools.
+# The host can write agent files only under work/ and append audit records only
+# under logs/. Reads may use an explicit absolute path outside those roots.
 ROOT_DIR = Path(__file__).resolve().parent.parent
-WORKDIR = ROOT_DIR / "sandbox-work"
-WORKSPACE = SandboxWorkspace(WORKDIR)
+WORKDIR = ROOT_DIR / "work"
+LOGDIR = ROOT_DIR / "logs"
+WORKSPACE = SandboxWorkspace(WORKDIR, LOGDIR)
 RUNNER = ConstrainedLocalRunner(WORKSPACE)
 
 
@@ -61,17 +62,17 @@ _load_dotenv()
 # TOOLS — the only things the agent can do (mirrors real coding agents)
 # --------------------------------------------------------------------------
 def write_file(path: str, content: str) -> str:
-    """Create a UTF-8 file after the workspace proves its path is contained."""
+    """Create UTF-8 text only under work/ or logs/."""
     return WORKSPACE.write_file(path, content)
 
 
 def edit_file(path: str, old: str, new: str) -> str:
-    """Edit a contained UTF-8 file; traversal is rejected by the workspace."""
+    """Edit UTF-8 text only under work/ or logs/."""
     return WORKSPACE.edit_file(path, old, new)
 
 
 def read_file(path: str) -> str:
-    """Read a contained UTF-8 file; traversal is rejected by the workspace."""
+    """Read a work-relative file or any readable file at an absolute path."""
     return WORKSPACE.read_file(path)
 
 
@@ -98,7 +99,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "Create or overwrite a file in the sandbox workspace.",
+            "description": "Create or overwrite a file only in work/ or logs/.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -113,7 +114,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "edit_file",
-            "description": "Replace the first occurrence of old with new in a sandbox file.",
+            "description": "Replace text only in a file under work/ or logs/.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -129,7 +130,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read a file in the sandbox workspace.",
+            "description": "Read a work-relative file or any readable absolute path.",
             "parameters": {
                 "type": "object",
                 "properties": {"path": {"type": "string"}},
@@ -153,7 +154,8 @@ TOOL_SCHEMAS = [
 
 SYSTEM_PROMPT = (
     "You are a minimal coding agent. You can write, edit and read files "
-    "in the sandbox workspace, and run allowlisted commands there. Work step by step: "
+    "in work/ or logs/, read files when needed, and run allowlisted commands in work/. "
+    "Work step by step: "
     "create the script, run it, fix any errors, and confirm the final output. "
     "Finish with a short plain-text summary of what you did."
 )
@@ -239,6 +241,7 @@ def _call_hook(
     """Run one extension callback while keeping extension failures contained."""
     # The UI owns presentation.  The agent provides only an event name and a
     # short fact about the transition, so terminal wording stays configurable.
+    context.workspace.record(f"lifecycle.{hook_name}", detail, context.step)
     context.ui.show_lifecycle_event(hook_name, detail)
     callback: Callable[..., None] | None = getattr(lifecycle_hooks, hook_name, None)
     if callback is None:
@@ -249,6 +252,7 @@ def _call_hook(
         # A plugin is optional: report its failure through the UI, then allow
         # the host-controlled agent loop to continue.  Do not recurse into
         # ``on_error`` if that callback itself is the failed hook.
+        context.workspace.record("lifecycle.hook_error", f"{hook_name}: {error}", context.step)
         context.ui.show_hook_error(hook_name, error)
 
 
@@ -259,6 +263,7 @@ def _report_error(
     phase: str,
 ) -> None:
     """Tell hooks about a caught host error without risking recursive hooks."""
+    context.workspace.record("lifecycle.error", f"{phase}: {error}", context.step)
     if isinstance(error, SandboxPathError):
         context.ui.show_sandbox_status("path_rejected", str(error))
     elif isinstance(error, SandboxCommandError):
@@ -299,7 +304,7 @@ def agent_loop(
         {"role": "user", "content": prompt},
     ]
     context = AgentContext(prompt, messages, metrics, ui, WORKSPACE)
-    ui.show_sandbox_status("local_runner", "contained files; no host shell")
+    ui.show_sandbox_status("local_runner", "writes: work/ and logs/; no host shell")
     _call_hook(active_hooks, "before_input", context, prompt, detail=f"{len(prompt)} characters")
     _call_hook(active_hooks, "before_loop", context, detail="waiting for a model response")
 

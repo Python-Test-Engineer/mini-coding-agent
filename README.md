@@ -18,8 +18,9 @@ are sent back to the model until it returns a final answer.
 The code is in `src/agent.py`; `src/ui.py` and `src/ui.json` configure the
 terminal interface. `src/sandbox.py` contains the path and command policy.
 `src/demo-prompt.md` contains an example request. Generated files and commands
-use the repository-root `sandbox-work/` directory, regardless of where the
-agent is launched.
+use the repository-root `work/` directory, regardless of where the agent is
+launched. Lifecycle and sandbox records are written as JSONL files under
+repository-root `logs/`.
 
 ## Requirements
 
@@ -56,15 +57,17 @@ uv run agent.py
 ```
 
 The app will prompt for a request. The agent always stores generated files in
-the repository-root `sandbox-work/` directory, including when launched from
-`src/`.
+the repository-root `work/` directory, including when launched from `src/`.
+It appends one JSON object per lifecycle event to a generated file in `logs/`.
 
 ## Safety note
 
 This is a teaching demo with a **constrained local runner**, not a strong
-operating-system sandbox. File tools reject absolute and traversal paths, and
-the runner uses `shell=False`, an allowlist (`python` and `pytest` variants), a
-timeout, and bounded output. Its child processes still run with the current
-user's permissions and are not network-isolated. Only use trusted prompts in a
-controlled environment. Use a container or VM runtime before exposing the
-agent to untrusted users.
+operating-system sandbox. The file tools can read any readable absolute path,
+but reject write/edit targets outside repository-root `work/` and `logs/`.
+The runner uses `shell=False`, an allowlist (`python` and `pytest` variants), a
+timeout, bounded output, and rejects parent/absolute command paths. Its child
+processes still run with the current user's permissions and are not
+network-isolated; a Python script could deliberately bypass the host file-tool
+policy. Only use trusted prompts in a controlled environment. Use a container
+or VM runtime before exposing the agent to untrusted users.

@@ -1,11 +1,12 @@
-# Plan: use lifecycle hooks with a sandboxed tool host
+# Plan: use lifecycle hooks with a constrained tool host
 
 ## Goal
 
-Replace the current demonstration-only tool execution path with a sandboxed
-workspace for agent-created files and commands. The model should be able to
-create, edit, read, and run code in a dedicated environment, while the Python
-host retains the final authority over what executes.
+Constrain agent file tools to approved repository folders, record lifecycle
+events, and reduce shell risks while keeping the Python host responsible for
+every tool operation. The current implementation is a constrained local
+runner; a container or VM is still needed for an operating-system security
+boundary.
 
 Lifecycle hooks help make this work visible, auditable, and testable. They do
 not create a security boundary by themselves. The security boundary must be
@@ -13,14 +14,17 @@ enforced by the code that resolves file paths and starts processes.
 
 ## Current position
 
-`src/agent.py` exposes four direct host tools:
+`src/agent.py` exposes four host tools:
 
-- `write_file`, `edit_file`, and `read_file` build paths from `WORKDIR`.
-- `run` calls `subprocess.run(..., shell=True, cwd=WORKDIR)` using the current
-  user's permissions.
+- `write_file` and `edit_file` allow targets only under repository-root
+  `work/` or `logs/`.
+- `read_file` accepts work-relative paths and any readable absolute path.
+- `run` uses an allowlisted command parser and `subprocess.run(...,
+  shell=False, cwd=work/)` with a timeout and bounded output.
 
-The `work/` directory is a convenient default location. It is not a sandbox:
-paths can escape it and commands can access the host machine.
+The host file tools reject write/edit paths outside the two approved roots and
+there is no delete tool. These rules do not constrain arbitrary Python code
+started by `run`: a process still has the current user's OS permissions.
 
 Chapter 02 added lifecycle callbacks around the loop and each tool execution:
 
@@ -48,7 +52,7 @@ only code that permits or denies an action.
 5. **Fail closed.** If sandbox setup, path validation, or a required approval
    check cannot complete, return an error result and do not run the command.
 
-## Target shape
+## Implemented shape
 
 ```text
 model tool request
@@ -57,40 +61,47 @@ model tool request
 before_tool_execute hook  ---> audit event / optional approval request
       |
       v
-ToolExecutor (host-enforced policy)
-      |-- validate tool name and arguments
-      |-- resolve a path beneath the sandbox workspace
-      |-- start command in isolated runtime with limits
+SandboxWorkspace / ConstrainedLocalRunner (host-enforced tool policy)
+      |-- permit write/edit only under work/ and logs/
+      |-- permit reads from readable absolute paths
+      |-- run allowlisted commands without a shell
       v
-sandbox workspace / process
+work/ or logs/ / local process
       |
       v
-after_tool_execute hook   ---> audit result / duration / UI trace
+after_tool_execute hook   ---> audit result / JSONL log / UI trace
 ```
 
-The `ToolExecutor` is the important part: it is the only route from a model
-tool request to filesystem or process work. Hooks surround it and report on it.
+The `SandboxWorkspace` is the only route for model-requested file operations.
+The runner constrains command syntax but does not isolate the child process.
+Hooks surround these operations and write lifecycle events to `logs/*.jsonl`.
 
-## Phase 1: make the current host tools safe by construction
+## Phase 1: constrain host file tools (implemented)
 
-Create a small `SandboxWorkspace` class, initially backed by a local directory
-under the repository, for example `sandbox-work/`.
+`SandboxWorkspace` uses repository-root `work/` for ordinary files and
+repository-root `logs/` for audit records.
 
 Its responsibilities are:
 
-- Resolve a requested relative path with `Path.resolve()`.
-- Reject absolute paths and any resolved target outside the workspace root.
-- Create parent directories only under that root.
+- Resolve write/edit paths and allow only descendants of `work/` or `logs/`.
+- Reject absolute, drive-qualified, and traversal targets outside those roots.
+- Keep normal bare relative file names rooted in `work/`; accept `logs/...`
+  for explicit log files.
+- Allow `read_file` to read an absolute path wherever the current user can read.
+- Create parent directories only under an approved writable root.
 - Read and write text with an explicit encoding.
-- Return clear, model-readable errors such as `ERROR: path escapes sandbox`.
+- Return a clear model-readable error when a write/edit target is outside the
+  allowed roots.
 
 Route `write_file`, `edit_file`, and `read_file` through that class. Do not
 leave the old `(WORKDIR / path)` path construction in a second code path.
 
-Add tests for safe nested paths, `../` traversal, absolute paths, and path
-variants that resolve outside the workspace.
+Tests verify work/log writes, external absolute reads, and rejection of
+external write/edit attempts. There is no delete tool in the registered tool
+map, so a model cannot request deletion through the agent file API.
 
-This phase prevents accidental file escape. It does not isolate processes.
+This phase constrains the built-in file tools. It does not restrict writes made
+by arbitrary code launched through the local process runner.
 
 ## Phase 2: replace `shell=True` with a constrained command runner
 
@@ -107,14 +118,17 @@ For the first teaching version:
   do not send arbitrary model text to `shell=True`.
 - Permit a small allowlist, for example `python`, `pytest`, or an explicit
   workshop command supplied by configuration.
-- Run with the sandbox workspace as the current directory.
+- Run with `work/` as the current directory.
 - Apply a timeout and cap captured stdout/stderr size.
 - Return the exit code, standard output, and standard error in a bounded
   result so the model can fix failures.
 
-On Windows, a process launched this way still runs with the user account. It is
-a safer command interface, but it is not a strong operating-system sandbox.
-Document that distinction in the UI and workshop material.
+The local runner currently applies these rules with `shell=False`, an allowlist
+of Python and pytest executable names, a 20-second timeout, a 12,000-character
+cap for each output stream, and rejects parent/absolute path arguments and
+inline Python `-c` commands. These are command-interface constraints only. A
+Python script or pytest test can still use its process permissions to write
+outside `work/` and `logs/`.
 
 ## Phase 3: use a real isolated runtime for untrusted execution
 
@@ -138,21 +152,23 @@ agent and model continue to use the same tool names. Add an integration test
 that proves a created file is visible inside the sandbox and unavailable on the
 host outside the mounted sandbox directory.
 
-## Phase 4: make hooks useful for sandbox policy and audit
+## Phase 4: record lifecycle and tool events (implemented)
 
-Extend `AgentContext` with a small, append-only event list or a dedicated
-`SandboxEvent` record. Avoid having hooks modify `messages`, tool arguments, or
-the tool registry.
+`AgentContext` exposes the `SandboxWorkspace`. Each lifecycle callback appends
+a `SandboxEvent` to memory and writes a JSONL record to a uniquely named file
+in `logs/`. The record contains an event name, detail, step, monotonic time,
+and UTC timestamp. The event log file is created when the workspace starts.
 
 Use the existing callbacks as follows:
 
 | Hook | Sandbox use |
 | --- | --- |
-| `before_tool_execute` | Record requested tool, arguments, step, sandbox session ID, and policy decision. Request human approval for a configured class of action. |
-| `after_tool_execute` | Record success/failure, elapsed time, exit code, and bounded output size. |
-| `on_error` | Record path-policy, runtime-startup, timeout, and process errors with a clear phase. |
-| `on_session_start` | Create a sandbox session and record its identifier. |
-| `on_session_stop` | Destroy or reset the sandbox and record cleanup success. |
+| `before_tool_execute` | Record the requested tool name, argument count, and step. |
+| `after_tool_execute` | Record the tool name and success/failure outcome. |
+| `on_error` | Record path-policy, timeout, process, and tool errors with their phase. |
+| `on_session_start` | Record the start of the local runner session. |
+| `on_session_stop` | Record the end of the local runner session. |
+| Every callback | Record its lifecycle name and short detail in JSONL. |
 | `before_compact` / `after_compact` | Later: preserve a short audit summary when conversation history is compacted. |
 
 If approval is introduced, use a host-owned policy method that returns an
@@ -164,13 +180,12 @@ explicit allow/deny decision. A hook can request or record that decision, but
 Continue the Chapter 02 rule: `agent.py` reports an event; `UI` decides how it
 is shown; `ui.json` supplies labels and Rich styles.
 
-Add UI events such as:
+The UI displays policy statuses such as:
 
 ```text
-[box] sandbox session started
-[lock] path rejected
-[wait] command timed out
-[ok] sandbox cleaned up
+sandbox | [box] constrained local runner
+sandbox | [lock] path rejected
+sandbox | [wait] command timed out
 ```
 
 Use portable ASCII variants if the target Windows terminal cannot reliably
@@ -182,33 +197,36 @@ the current one-line lifecycle trace.
 
 Add focused tests before enabling each phase:
 
-1. **Workspace tests:** traversal and absolute paths fail; valid nested paths
-   remain inside the dedicated root.
+1. **Workspace tests:** writes/edits under `work/` and `logs/` succeed;
+   external writes and edits fail; readable absolute paths succeed.
 2. **Runner tests:** disallowed commands, shell metacharacters, timeouts, and
    oversized output produce bounded `ERROR:` results without starting a host
    shell.
-3. **Hook tests:** a recording hook sees the request, decision, outcome, and
-   cleanup events in order. A failing observer cannot bypass enforcement.
+3. **Hook/log tests:** lifecycle and tool events appear as JSONL records under
+   `logs/`; a failing observer cannot bypass host file-tool enforcement.
 4. **Runtime integration tests:** the actual container/VM has no network by
    default, has the configured limits, and exposes only the dedicated mount.
 5. **Cleanup tests:** session shutdown removes or resets temporary sandbox
    state, including after a tool timeout or an exception.
 
-The sandbox can be described as a security boundary only after the real
-isolated-runtime tests pass. Before that point, call it a constrained local
-runner.
+The implementation can guarantee the path policy for registered file tools.
+It cannot guarantee that a child Python process writes only under `work/` and
+`logs/`. Describe the current setup as a constrained local runner. Claim a
+whole-agent filesystem security boundary only after a container or VM enforces
+the same roots and its integration tests pass.
 
 ## Suggested implementation order
 
-1. Add `SandboxWorkspace` and its path-validation tests.
-2. Route the three file tools through it.
-3. Add a non-shell, allowlisted local `SandboxRunner` with timeout/output
+1. **Done:** constrain built-in writes/edits to `work/` and `logs/`; permit
+   readable absolute paths; omit any delete tool.
+2. **Done:** use a non-shell allowlisted local runner with timeout/output
    limits and tests.
-4. Introduce session setup/cleanup hooks and audit records.
-5. Add sandbox-specific UI configuration and trace output.
-6. Choose and integrate a container or VM runtime.
-7. Add runtime integration and cleanup tests, then update the README and book
-   to describe the proven guarantees accurately.
+3. **Done:** append lifecycle/tool events to JSONL files in `logs/` and show
+   configured UI statuses.
+4. Choose and integrate a container or VM runtime that enforces filesystem,
+   network, user, and resource limits for executed code.
+5. Add runtime integration tests proving child code cannot write outside
+   `work/` and `logs/`, then update the safety documentation to match.
 
 This sequence gives students a working improvement at each stage while making
 the boundary between hook-based observability and host-enforced isolation clear.
