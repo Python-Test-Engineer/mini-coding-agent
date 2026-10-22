@@ -1,6 +1,6 @@
 # mini-coding-agent
 
-main OK CH011 OK BED
+main OK CH011 OK BED TEST
 
 A small, working coding-agent demo for the AI-agents talk. It shows the core
 agent loop: a model requests tools, the Python host runs them, and the results
