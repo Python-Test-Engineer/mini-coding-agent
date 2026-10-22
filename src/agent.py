@@ -22,8 +22,10 @@ from pathlib import Path
 
 from ui import UI
 
+# One UI instance shares a single Rich console for the whole conversation.
 ui = UI()
 
+# Tool file operations are relative to this directory; it is not a security sandbox.
 WORKDIR = Path("work")
 WORKDIR.mkdir(exist_ok=True)
 
@@ -47,6 +49,7 @@ def read_file(path: str) -> str:
 
 
 def run(command: str) -> str:
+    # The command runs with this user's permissions; cwd alone does not restrict it.
     out = subprocess.run(
         command, shell=True, capture_output=True, text=True, cwd=WORKDIR
     )
@@ -60,7 +63,8 @@ TOOLS = {
     "run": run,
 }
 
-# OpenAI function-calling schema for the tools
+# The schema tells the model which host functions it may ask the agent to call.
+# Python still decides what actually runs; the model does not execute tools itself.
 TOOL_SCHEMAS = [
     {
         "type": "function",
@@ -131,6 +135,7 @@ SYSTEM_PROMPT = (
 # LLM (OpenRouter, OpenAI-compatible chat completions)
 # --------------------------------------------------------------------------
 def _api_key() -> str:
+    # Environment variables override the private local file used for this demo.
     key = os.environ.get("OPENROUTER_API_KEY")
     if key:
         return key
@@ -143,6 +148,7 @@ def _api_key() -> str:
 
 
 def _model() -> str:
+    # Keep the same precedence as the API key: environment, file, then fallback.
     m = os.environ.get("MODEL")
     if m:
         return m
@@ -155,6 +161,7 @@ def _model() -> str:
 
 
 def chat(messages: list[dict]) -> dict:
+    # OpenRouter accepts the OpenAI chat-completions request/response format.
     body = json.dumps(
         {
             "model": _model(),
@@ -175,6 +182,7 @@ def chat(messages: list[dict]) -> dict:
 
 
 def _accumulate_usage(metrics: dict, usage: dict) -> None:
+    # Keep the most recent prompt size for context display and sum billed usage.
     prompt_tokens = usage.get("prompt_tokens")
     if prompt_tokens is not None:
         prompt_tokens = int(prompt_tokens)
@@ -199,6 +207,7 @@ def _accumulate_usage(metrics: dict, usage: dict) -> None:
 # --------------------------------------------------------------------------
 def agent_loop(prompt: str, max_steps: int = 8) -> None:
     ui.show_start(prompt)
+    # Messages are the shared conversation state sent again on every model call.
     metrics = {
         "last_input_tokens": 0,
         "context_limit": None,
@@ -226,12 +235,14 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
             ui.show_done(metrics)
             return
 
+        # Preserve the assistant's tool request before replying with tool results.
         messages.append(msg)
         for tc in tool_calls:
             name = tc["function"]["name"]
             try:
                 args = json.loads(tc["function"]["arguments"] or "{}")
             except json.JSONDecodeError:
+                # Return malformed arguments as an empty object so the loop can continue.
                 args = {}
             ui.show_tool(name, args)
             if name == "write_file":
@@ -250,6 +261,7 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
 
 
 if __name__ == "__main__":
+    # A command-line request skips the prompt; without one, ask interactively.
     prompt = " ".join(sys.argv[1:]).strip()
     if not prompt:
         prompt = ui.prompt(_model()).strip()

@@ -20,6 +20,7 @@ class UI:
         console: Console | None = None,
         config_path: Path | None = None,
     ) -> None:
+        # Resolve the default theme beside this module, not from the launch folder.
         self.console = console or Console()
         path = config_path or Path(__file__).with_name("ui.json")
         self.config: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
@@ -27,6 +28,7 @@ class UI:
         self.styles = self.config["styles"]
 
     def prompt(self, model_name: str) -> str:
+        # Rich Text styles the prompt while Console.input still returns plain text.
         prompt = Text()
         prompt.append(
             self.labels["model"].format(model=model_name),
@@ -42,6 +44,7 @@ class UI:
         return self.console.input(prompt)
 
     def show_start(self, request: str) -> None:
+        # Establish the request context once before the model/tool loop begins.
         self.console.rule(
             Text(self.labels["header"], style=self.styles["header"]),
             style=self.styles["header_rule"],
@@ -57,6 +60,7 @@ class UI:
         self.console.print()
 
     def show_thought(self, step: int, content: str) -> None:
+        # Each model response is shown as a numbered step in the ReAct loop.
         title = self.labels["thought"].format(step=step)
         self.console.print(
             Panel(
@@ -68,14 +72,17 @@ class UI:
         )
 
     def show_tool(self, name: str, arguments: dict[str, Any]) -> None:
+        # Display the requested call and its JSON arguments before executing it.
         line = Text(self.labels["tool"], style=self.styles["tool_label"])
         line.append(f" {name}({json.dumps(arguments)})")
         self.console.print(line)
 
     def show_code(self, content: str) -> None:
+        # Syntax highlighting makes generated code easier to scan in the demo.
         self.console.print(Syntax(content, "python", theme=self.styles["code_theme"]))
 
     def show_result(self, result: str) -> None:
+        # Tool errors are also results, so the UI can show them consistently.
         self.console.print(
             Panel(
                 result,
@@ -102,6 +109,7 @@ class UI:
         self.footer(metrics)
 
     def footer(self, metrics: Any = None) -> None:
+        # Accept either a metrics dictionary or an object with matching attributes.
         def metric(name: str, default: Any) -> Any:
             if isinstance(metrics, dict):
                 return metrics.get(name, default)
@@ -116,6 +124,7 @@ class UI:
             percent = context / limit * 100
             context_text = f"Context: {context:,}/{limit:,} tokens ({percent:.1f}%)"
         else:
+            # The completion API may report token usage without exposing model limits.
             context_text = f"Context: {context:,} input tokens (limit unavailable)"
 
         self.console.print(Text("-" * 72, style="dim"))

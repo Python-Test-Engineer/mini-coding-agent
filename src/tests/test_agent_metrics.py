@@ -1,3 +1,5 @@
+"""Verify usage metrics flow from model replies into the UI footer."""
+
 import unittest
 from unittest.mock import patch
 
@@ -17,6 +19,7 @@ class UsageMetricTests(unittest.TestCase):
             "total_cost": 0.0,
         }
 
+        # Each model reply contributes billable prompt/completion usage.
         agent._accumulate_usage(
             metrics, {"prompt_tokens": 10, "completion_tokens": 3, "cost": 0.01}
         )
@@ -38,6 +41,7 @@ class UsageMetricTests(unittest.TestCase):
             "total_cost": 0.02,
         }
 
+        # Compatible API providers may omit usage details from a reply.
         agent._accumulate_usage(metrics, {})
 
         self.assertEqual(metrics["last_input_tokens"], 7)
@@ -56,6 +60,7 @@ class UsageMetricTests(unittest.TestCase):
             },
         }
 
+        # Patch the network boundary so this exercises the real loop without an API call.
         with (
             patch("agent.ui", UI(console=console)),
             patch("agent.chat", return_value=reply),

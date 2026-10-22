@@ -1,3 +1,5 @@
+"""Verify the terminal UI renders completion and usage details."""
+
 import unittest
 
 from rich.console import Console
@@ -7,6 +9,7 @@ from ui import UI
 
 class FooterIntegrationTests(unittest.TestCase):
     def test_done_screen_displays_footer(self):
+        # Recording lets the test inspect Rich output without a real terminal.
         console = Console(record=True, width=100)
         ui = UI(console=console)
 
