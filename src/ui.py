@@ -122,6 +122,19 @@ class UI:
             line.append(f" - {detail[:100]}", style=self.styles["lifecycle_detail"])
         self.console.print(line)
 
+    def show_sandbox_status(self, status: str, detail: str = "") -> None:
+        """Render sandbox policy status without coupling sandbox code to Rich."""
+        status_labels = self.labels["sandbox_events"]
+        status_styles = self.styles["sandbox_events"]
+        label = status_labels.get(status, status.replace("_", " "))
+        style = status_styles.get(status, self.styles["sandbox_prefix"])
+        line = Text(self.labels["sandbox_prefix"], style=self.styles["sandbox_prefix"])
+        line.append(" | ")
+        line.append(label, style=style)
+        if detail:
+            line.append(f" - {detail[:100]}", style=self.styles["sandbox_detail"])
+        self.console.print(line)
+
     def blank_line(self) -> None:
         self.console.print()
 

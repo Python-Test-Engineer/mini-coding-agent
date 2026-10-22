@@ -12,8 +12,9 @@ __pycache__/
 # --- Data / live snapshots (generated, not tracked) ---
 web_app/data/
 live_bikeshare_*.csv
+sandbox-work/
 
 # --- Editor / OS ---
 
 .DS_Store
-Thumbs.db    
+Thumbs.db

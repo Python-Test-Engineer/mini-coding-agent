@@ -11,6 +11,14 @@
     "done": "done",
     "max_steps": "max steps reached",
     "hook_error": "lifecycle hook error",
+    "sandbox_prefix": "sandbox",
+    "sandbox_events": {
+      "local_runner": "[box] constrained local runner",
+      "path_rejected": "[lock] path rejected",
+      "command_rejected": "[lock] command rejected",
+      "command_timed_out": "[wait] command timed out",
+      "session_stopped": "[ok] sandbox session stopped"
+    },
     "lifecycle_prefix": "lifecycle",
     "lifecycle_events": {
       "on_session_start": "[>] session started",
@@ -49,6 +57,15 @@
     "max_steps": "bold red",
     "hook_error_title": "bold red",
     "hook_error_border": "red",
+    "sandbox_prefix": "dim italic",
+    "sandbox_detail": "dim",
+    "sandbox_events": {
+      "local_runner": "bold cyan",
+      "path_rejected": "bold red",
+      "command_rejected": "bold red",
+      "command_timed_out": "bold yellow",
+      "session_stopped": "green"
+    },
     "lifecycle_prefix": "dim italic",
     "lifecycle_detail": "dim",
     "lifecycle_events": {

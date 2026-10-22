@@ -15,8 +15,8 @@ from ui import UI
 
 
 class UsageMetricTests(unittest.TestCase):
-    def test_work_directory_is_anchored_at_repository_root(self):
-        expected = Path(agent.__file__).resolve().parent.parent / "work"
+    def test_sandbox_workspace_is_anchored_at_repository_root(self):
+        expected = Path(agent.__file__).resolve().parent.parent / "sandbox-work"
 
         self.assertEqual(agent.WORKDIR, expected)
 

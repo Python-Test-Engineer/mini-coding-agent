@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass
@@ -25,19 +24,29 @@ from typing import Any, Callable
 from dotenv import load_dotenv
 
 from lifecycle import Hooks
+from sandbox import (
+    ConstrainedLocalRunner,
+    SandboxAuditHooks,
+    SandboxCommandError,
+    SandboxError,
+    SandboxPathError,
+    SandboxWorkspace,
+)
 from ui import UI
 
 # One UI instance shares a single Rich console for the whole conversation.
 ui = UI()
 
-# Applications can replace this object with a Hooks subclass to observe every
-# turn.  Even the default Hooks object produces a visible lifecycle trace.
-hooks = Hooks()
+# The default hook records each sandbox session and tool outcome. Applications
+# can replace it with their own Hooks subclass when they need other behaviour.
+hooks = SandboxAuditHooks()
 
-# Anchor generated files at the repository root, regardless of launch directory.
+# Keep generated files in a dedicated directory rather than the general work/
+# folder. Path checks in SandboxWorkspace enforce this boundary for file tools.
 ROOT_DIR = Path(__file__).resolve().parent.parent
-WORKDIR = ROOT_DIR / "work"
-WORKDIR.mkdir(exist_ok=True)
+WORKDIR = ROOT_DIR / "sandbox-work"
+WORKSPACE = SandboxWorkspace(WORKDIR)
+RUNNER = ConstrainedLocalRunner(WORKSPACE)
 
 
 def _load_dotenv() -> None:
@@ -52,26 +61,27 @@ _load_dotenv()
 # TOOLS — the only things the agent can do (mirrors real coding agents)
 # --------------------------------------------------------------------------
 def write_file(path: str, content: str) -> str:
-    (WORKDIR / path).write_text(content)
-    return f"Created {path}"
+    """Create a UTF-8 file after the workspace proves its path is contained."""
+    return WORKSPACE.write_file(path, content)
 
 
 def edit_file(path: str, old: str, new: str) -> str:
-    p = WORKDIR / path
-    p.write_text(p.read_text().replace(old, new, 1))
-    return f"Edited {path}: {old!r} -> {new!r}"
+    """Edit a contained UTF-8 file; traversal is rejected by the workspace."""
+    return WORKSPACE.edit_file(path, old, new)
 
 
 def read_file(path: str) -> str:
-    return (WORKDIR / path).read_text()
+    """Read a contained UTF-8 file; traversal is rejected by the workspace."""
+    return WORKSPACE.read_file(path)
 
 
 def run(command: str) -> str:
-    # The command runs with this user's permissions; cwd alone does not restrict it.
-    out = subprocess.run(
-        command, shell=True, capture_output=True, text=True, cwd=WORKDIR
-    )
-    return out.stdout.strip() or out.stderr.strip()
+    """Run an allowlisted command without using a host shell.
+
+    This is a constrained local runner, not a strong OS-level sandbox. A future
+    container or VM runner can implement the same interface for untrusted code.
+    """
+    return RUNNER.run(command)
 
 
 TOOLS = {
@@ -88,7 +98,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "write_file",
-            "description": "Create or overwrite a file in the work dir.",
+            "description": "Create or overwrite a file in the sandbox workspace.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -103,7 +113,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "edit_file",
-            "description": "Replace the first occurrence of old with new in a file.",
+            "description": "Replace the first occurrence of old with new in a sandbox file.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -119,7 +129,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "read_file",
-            "description": "Read a file in the work dir.",
+            "description": "Read a file in the sandbox workspace.",
             "parameters": {
                 "type": "object",
                 "properties": {"path": {"type": "string"}},
@@ -131,7 +141,7 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "run",
-            "description": "Run a shell command in the work dir (e.g. 'python hello.py').",
+            "description": "Run an allowlisted command without a shell (e.g. 'python hello.py').",
             "parameters": {
                 "type": "object",
                 "properties": {"command": {"type": "string"}},
@@ -143,7 +153,7 @@ TOOL_SCHEMAS = [
 
 SYSTEM_PROMPT = (
     "You are a minimal coding agent. You can write, edit and read files "
-    "in the work directory, and run shell commands there. Work step by step: "
+    "in the sandbox workspace, and run allowlisted commands there. Work step by step: "
     "create the script, run it, fix any errors, and confirm the final output. "
     "Finish with a short plain-text summary of what you did."
 )
@@ -215,6 +225,7 @@ class AgentContext:
     messages: list[dict]
     metrics: dict[str, Any]
     ui: UI
+    workspace: SandboxWorkspace
     step: int = 0
 
 
@@ -248,6 +259,11 @@ def _report_error(
     phase: str,
 ) -> None:
     """Tell hooks about a caught host error without risking recursive hooks."""
+    if isinstance(error, SandboxPathError):
+        context.ui.show_sandbox_status("path_rejected", str(error))
+    elif isinstance(error, SandboxCommandError):
+        status = "command_timed_out" if "timed out" in str(error) else "command_rejected"
+        context.ui.show_sandbox_status(status, str(error))
     context.ui.show_lifecycle_event("on_error", f"{phase}: {error}")
     callback: Callable[..., None] | None = getattr(lifecycle_hooks, "on_error", None)
     if callback is None:
@@ -282,7 +298,8 @@ def agent_loop(
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt},
     ]
-    context = AgentContext(prompt, messages, metrics, ui)
+    context = AgentContext(prompt, messages, metrics, ui, WORKSPACE)
+    ui.show_sandbox_status("local_runner", "contained files; no host shell")
     _call_hook(active_hooks, "before_input", context, prompt, detail=f"{len(prompt)} characters")
     _call_hook(active_hooks, "before_loop", context, detail="waiting for a model response")
 
@@ -376,9 +393,10 @@ if __name__ == "__main__":
     if not prompt:
         prompt = ui.prompt(_model()).strip()
     # A command-line run is a short session containing one agent turn.
-    session_context = AgentContext(prompt, [], {}, ui)
+    session_context = AgentContext(prompt, [], {}, ui, WORKSPACE)
     _call_hook(hooks, "on_session_start", session_context, detail="command-line session")
     try:
         agent_loop(prompt)
     finally:
         _call_hook(hooks, "on_session_stop", session_context, detail="command-line session")
+        ui.show_sandbox_status("session_stopped", "constrained local runner stopped")
