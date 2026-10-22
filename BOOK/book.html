@@ -1028,11 +1028,13 @@
         <a class="toc-section" href="#interface">Console &amp; usage</a>
         <a class="toc-section" href="#run">Run it</a>
         <a class="toc-chapter" href="#chapter-02">Chapter 02 · Hooks</a>
-        <a class="toc-section" href="#hooks-overview">What hooks are</a>
-        <a class="toc-section" href="#hooks-lifecycle">A hook lifecycle</a>
-        <a class="toc-section" href="#hooks-policy">Safety and policy</a>
+        <a class="toc-section" href="#hooks-overview">Observable boundaries</a>
+        <a class="toc-section" href="#hooks-contract">The hook contract</a>
+        <a class="toc-section" href="#hooks-wiring">Wiring the loop</a>
+        <a class="toc-section" href="#hooks-ui">Console traces</a>
+        <a class="toc-section" href="#hooks-tests">Tests and checklist</a>
       </nav>
-      <div class="rail-note">Two short chapters on the agent loop and one possible extension point.</div>
+      <div class="rail-note">Two short chapters on the agent loop, lifecycle hooks, and observable host boundaries.</div>
     </aside>
 
     <main>
@@ -1292,13 +1294,13 @@ uv run agent.py "write a hello world script and run it"</code></pre>
 
       <header class="hero chapter-hero" id="chapter-02">
         <div class="eyebrow">Chapter 02 <span aria-hidden="true">/</span> Extension points</div>
-        <h1>Hooks make behavior <em>pluggable.</em></h1>
-        <p class="dek">A hook is a named callback at a useful boundary in the agent loop. It lets the host add policy,
-          logging, or approval without hiding who still owns execution.</p>
+        <h1>Hooks make the loop <em>observable.</em></h1>
+        <p class="dek">A hook is a named callback at a useful boundary in the agent loop. It records what the host is
+          doing without taking ownership of model requests, tool execution, or terminal rendering.</p>
         <div class="learning-row" aria-label="Chapter learning goals">
           <div class="learning-item"><b>01</b><span>Place callbacks around clear lifecycle boundaries.</span></div>
-          <div class="learning-item"><b>02</b><span>Keep the agent host in control of every action.</span></div>
-          <div class="learning-item"><b>03</b><span>Make safety checks explicit and testable.</span></div>
+          <div class="learning-item"><b>02</b><span>Inspect a turn through a small, documented context object.</span></div>
+          <div class="learning-item"><b>03</b><span>Keep terminal wording and colours in the UI layer.</span></div>
         </div>
       </header>
 
@@ -1306,7 +1308,7 @@ uv run agent.py "write a hello world script and run it"</code></pre>
         <div class="section-head">
           <div class="section-number">01 / IDEA</div>
           <div>
-            <div class="section-kicker">A possible extension</div>
+            <div class="section-kicker">An implemented extension</div>
             <h2>Hooks are named points around work.</h2>
             <p class="section-intro">A hook runs when the host reaches a defined event—for example, before a model
               request or after a tool returns. The hook can inspect context, record an event, or apply a policy; it
@@ -1318,99 +1320,168 @@ uv run agent.py "write a hello world script and run it"</code></pre>
             <ol class="loop-track">
               <li><small>Event</small><strong>Host reaches boundary</strong></li>
               <li><small>Callback</small><strong>Hook inspects context</strong></li>
-              <li><small>Decision</small><strong>Continue or stop</strong></li>
+              <li><small>Host</small><strong>Continues its own work</strong></li>
               <li><small>Action</small><strong>Host performs work</strong></li>
               <li><small>Record</small><strong>Outcome is visible</strong></li>
             </ol>
             <figcaption>The host defines when a hook runs and what its result is allowed to change.</figcaption>
           </figure>
           <aside class="callout">
-            <span class="callout-label">Design sketch · not implemented</span>
-            <p>This chapter describes a possible extension. The current demo does not define a hook API; the existing
-              loop and tools continue to work without one.</p>
+            <span class="callout-label">Implemented in Chapter 02</span>
+            <p><code>src/lifecycle.py</code> defines the callback contract and <code>src/agent.py</code> sends
+              notifications around a real model and tool run. The existing loop and tools retain control of work.</p>
           </aside>
         </div>
       </section>
 
-      <section class="lesson-section" id="hooks-lifecycle">
+      <section class="lesson-section" id="hooks-contract">
         <div class="section-head">
-          <div class="section-number">02 / LIFECYCLE</div>
+          <div class="section-number">02 / CONTRACT</div>
           <div>
-            <div class="section-kicker">Keep boundaries understandable</div>
-            <h2>Run hooks where the host can explain them.</h2>
+            <div class="section-kicker">One documented interface</div>
+            <h2>Each callback sees the current turn.</h2>
+            <p class="section-intro"><code>Hooks</code> is a no-op base class in <code>src/lifecycle.py</code>.
+              Students override only the callbacks they need. Each receives an <code>AgentContext</code> with the request,
+              live message history, usage metrics, active UI, and current model step.</p>
+          </div>
+        </div>
+        <table class="tool-table">
+          <thead><tr><th>Callback</th><th>When it fires</th><th>Extra data</th></tr></thead>
+          <tbody>
+            <tr><td><code>before_input</code> / <code>after_input</code></td><td>A request starts and finishes.</td><td>User input and final output.</td></tr>
+            <tr><td><code>before_loop</code> / <code>after_loop</code></td><td>The model/tool loop starts and ends.</td><td>Final output on completion.</td></tr>
+            <tr><td><code>before_brain_request</code></td><td>Immediately before <code>chat(messages)</code>.</td><td>The live conversation list.</td></tr>
+            <tr><td><code>after_brain_response</code></td><td>Immediately after a provider response.</td><td>The provider message dictionary.</td></tr>
+            <tr><td><code>before_tool_execute</code> / <code>after_tool_execute</code></td><td>Before and after every requested tool.</td><td>Tool name, arguments, and result.</td></tr>
+            <tr><td><code>on_error</code></td><td>The host catches malformed tool arguments or a tool error.</td><td>Error object and phase.</td></tr>
+          </tbody>
+        </table>
+        <aside class="callout">
+          <span class="callout-label">Future boundaries already named</span>
+          <p>The contract also reserves context compaction, mode-change, and provider-switch callbacks. This agent does
+            not yet perform those actions, so it does not fire those events.</p>
+        </aside>
+      </section>
+
+      <section class="lesson-section" id="hooks-wiring">
+        <div class="section-head">
+          <div class="section-number">03 / WIRING</div>
+          <div>
+            <div class="section-kicker">The host still controls work</div>
+            <h2>Call hooks around the real transitions.</h2>
             <p class="section-intro">A small, ordered lifecycle is easier to test than callbacks scattered through tool code.
-              Each event should say what data is available and whether a hook may block the next step.</p>
+              Each event says what data is available while the host continues to own requests, dispatch, and results.</p>
           </div>
         </div>
         <div class="step-grid">
           <article class="step"><span class="step-no">01 · BEFORE REQUEST</span>
-            <h3>Validate the turn</h3>
-            <p>Check the request context and attach a trace ID before sending it to a provider.</p>
+            <h3>Start the turn</h3>
+            <p><code>before_input</code> and <code>before_loop</code> announce the request and create its context.</p>
           </article>
           <article class="step"><span class="step-no">02 · AFTER RESPONSE</span>
-            <h3>Inspect the proposal</h3>
-            <p>Record the response and inspect requested tool names before dispatch.</p>
+            <h3>Ask the model</h3>
+            <p><code>before_brain_request</code> sees the live messages; <code>after_brain_response</code> sees the reply.</p>
           </article>
           <article class="step"><span class="step-no">03 · BEFORE TOOL</span>
-            <h3>Apply a gate</h3>
-            <p>Validate arguments and require approval for sensitive operations when policy says so.</p>
+            <h3>Start each tool</h3>
+            <p><code>before_tool_execute</code> receives the requested tool name and decoded arguments.</p>
           </article>
           <article class="step"><span class="step-no">04 · AFTER TOOL</span>
-            <h3>Capture the result</h3>
-            <p>Log the outcome, duration, and failure state before adding the tool message to history.</p>
+            <h3>Finish each tool</h3>
+            <p><code>after_tool_execute</code> receives both successful results and host-created error results.</p>
           </article>
           <article class="step"><span class="step-no">05 · BEFORE REPEAT</span>
-            <h3>Check the budget</h3>
-            <p>Stop if the run has reached its step, time, or token budget.</p>
+            <h3>Report caught errors</h3>
+            <p><code>on_error</code> observes malformed arguments and tool exceptions caught by the host.</p>
           </article>
           <article class="step"><span class="step-no">06 · ON FINISH</span>
-            <h3>Close the trace</h3>
-            <p>Report a final status whether the run completed, failed, or was cancelled.</p>
+            <h3>Close the turn</h3>
+            <p><code>after_loop</code> and <code>after_input</code> run for a final answer or the step limit.</p>
           </article>
         </div>
       </section>
 
-      <section class="lesson-section" id="hooks-policy">
+      <section class="lesson-section" id="hooks-ui">
         <div class="section-head">
-          <div class="section-number">03 / POLICY</div>
+          <div class="section-number">04 / OUTPUT</div>
           <div>
-            <div class="section-kicker">Safety stays explicit</div>
-            <h2>A hook can advise; the host must enforce.</h2>
-            <p class="section-intro">A callback is not a security boundary by itself. The host owns validation, approval,
-              and execution, and it should fail closed if a required check cannot complete.</p>
+            <div class="section-kicker">UI owns presentation</div>
+            <h2>Make lifecycle work visible without printing from hooks.</h2>
+            <p class="section-intro"><code>agent.py</code> supplies an event name and a short detail. The <code>UI</code>
+              chooses the terminal text, colour, and error panel through <code>ui.json</code>.</p>
           </div>
         </div>
         <div class="two-column">
           <table class="tool-table">
-            <thead><tr><th>Hook responsibility</th><th>Host guarantee</th></tr></thead>
+            <thead><tr><th>UI configuration</th><th>What it controls</th></tr></thead>
             <tbody>
-              <tr><td><code>before_tool</code></td><td>Validate the tool name and arguments against the registered schema.</td></tr>
-              <tr><td>Approval callback</td><td>Pause sensitive work until an authorized person approves it.</td></tr>
-              <tr><td><code>after_tool</code></td><td>Record success or failure without rewriting the actual result.</td></tr>
-              <tr><td>Hook failure</td><td>Stop or follow a documented fallback; never silently skip a required guard.</td></tr>
+              <tr><td><code>labels.lifecycle_events</code></td><td>The marker and wording for each callback, such as <code>[AI] model request</code>.</td></tr>
+              <tr><td><code>styles.lifecycle_events</code></td><td>The Rich colour for each event: model calls are magenta and tools are yellow.</td></tr>
+              <tr><td><code>show_lifecycle_event()</code></td><td>Builds the compact trace line and limits details to 100 characters.</td></tr>
+              <tr><td><code>show_hook_error()</code></td><td>Displays a configured error panel when optional extension code raises an exception.</td></tr>
             </tbody>
           </table>
           <aside class="callout">
-            <span class="callout-label">A useful rule</span>
-            <p>Keep the permission check next to the action it protects. A “before tool” hook that can be bypassed
-              by another call path is only advisory, not enforcement.</p>
+            <span class="callout-label">Portable console markers</span>
+            <p>The event markers use ASCII forms such as <code>[AI]</code>, <code>[&gt;]</code>, and <code>[ok]</code>.
+              They remain readable in legacy Windows consoles while Rich adds colour where the terminal supports it.</p>
           </aside>
         </div>
         <div class="final-band">
           <div>
-            <h3>Before adding a hook system</h3>
-            <p>Define the event names, callback inputs, return contract, ordering, error behavior, and tests. Start with
-              one real use case rather than a general plugin framework.</p>
+            <h3>Contain extension failures</h3>
+            <p>If a callback raises an exception, the host renders a lifecycle-hook error panel and continues the
+              core loop. A failing optional observer cannot stop a model response or tool result.</p>
           </div>
           <div>
             <h3>Keep the loop visible</h3>
-            <p>The model proposes, Python decides, and the host executes. Hooks should make those boundaries clearer,
-              not obscure them.</p>
+            <p>The model proposes, Python executes, and hooks observe. The trace makes those boundaries easier to
+              follow without placing terminal formatting in agent logic.</p>
           </div>
         </div>
         <div class="footer-note">
           <span>Chapter 02 · Hooks</span>
-          <span>End of this draft · hook examples are conceptual, not current features.</span>
+          <span>Implemented lifecycle hooks, configurable terminal traces, and focused integration tests.</span>
+        </div>
+      </section>
+
+      <section class="lesson-section" id="hooks-tests">
+        <div class="section-head">
+          <div class="section-number">05 / TESTS</div>
+          <div>
+            <div class="section-kicker">Extension points need evidence</div>
+            <h2>Test the order and the failure boundary.</h2>
+            <p class="section-intro"><code>tests/test_agent_lifecycle.py</code> replaces the network call with a fixed
+              reply, records hook callbacks, and captures Rich output without requiring an API key.</p>
+          </div>
+        </div>
+        <div class="two-column">
+          <div class="code-panel" aria-label="Expected lifecycle order">
+            <div class="code-caption"><span>Final response lifecycle</span><span>one turn</span></div>
+            <pre><code>before_input
+before_brain_request
+after_brain_response
+after_loop
+after_input</code></pre>
+          </div>
+          <aside class="callout">
+            <span class="callout-label">Failure isolation</span>
+            <p>A deliberately broken <code>before_loop()</code> hook produces a lifecycle error panel, while the
+              mocked agent still reaches its final response. That is the distinction between observing the loop and
+              owning it.</p>
+          </aside>
+        </div>
+        <div class="final-band">
+          <div>
+            <h3>Run the tests</h3>
+            <p>Run the full standard-library suite from the repository root.</p>
+            <pre class="run-command"><code>uv run python -m unittest discover -s tests -v</code></pre>
+          </div>
+          <div>
+            <h3>Chapter 02 checklist</h3>
+            <p><code>Hooks</code> defines the contract; <code>agent.py</code> announces transitions; the UI owns
+              colours and wording; tests verify callback order and failure isolation.</p>
+          </div>
         </div>
       </section>
     </main>
