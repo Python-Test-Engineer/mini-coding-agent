@@ -1,9 +1,11 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Chapter 01: how the mini coding agent turns model tool requests into a working loop.">
+  <meta name="description"
+    content="Chapter 01: how the mini coding agent turns model tool requests into a working loop.">
   <title>Chapter 01 — The Agent Loop</title>
   <style>
     :root {
@@ -23,9 +25,13 @@
       --serif: Georgia, "Times New Roman", serif;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
-    html { scroll-behavior: smooth; }
+    html {
+      scroll-behavior: smooth;
+    }
 
     body {
       margin: 0;
@@ -35,7 +41,9 @@
       line-height: 1.58;
     }
 
-    a { color: inherit; }
+    a {
+      color: inherit;
+    }
 
     .layout {
       display: grid;
@@ -101,7 +109,9 @@
     }
 
     .contents a:hover,
-    .contents a:focus-visible { color: var(--accent); }
+    .contents a:focus-visible {
+      color: var(--accent);
+    }
 
     .rail-note {
       margin-top: 35px;
@@ -111,9 +121,13 @@
       font-size: 11px;
     }
 
-    main { min-width: 0; }
+    main {
+      min-width: 0;
+    }
 
-    section { scroll-margin-top: 26px; }
+    section {
+      scroll-margin-top: 26px;
+    }
 
     .hero {
       padding: 11px 0 34px;
@@ -236,7 +250,9 @@
     }
 
     .loop-track li:nth-child(2),
-    .loop-track li:nth-child(4) { border-top-color: var(--accent); }
+    .loop-track li:nth-child(4) {
+      border-top-color: var(--accent);
+    }
 
     .loop-track li:not(:last-child)::after {
       position: absolute;
@@ -324,9 +340,14 @@
       vertical-align: top;
     }
 
-    .tool-table tbody tr:last-child td { border-bottom: 0; }
+    .tool-table tbody tr:last-child td {
+      border-bottom: 0;
+    }
 
-    code, pre { font-family: var(--mono); }
+    code,
+    pre {
+      font-family: var(--mono);
+    }
 
     .tool-table code {
       color: var(--accent);
@@ -350,11 +371,14 @@
       text-transform: uppercase;
     }
 
-    .callout p { margin: 0; font-size: 13px; }
+    .callout p {
+      margin: 0;
+      font-size: 13px;
+    }
 
     .callout code {
       padding: 1px 4px;
-      background: rgba(255,255,255,.55);
+      background: rgba(255, 255, 255, .55);
       font-size: 11px;
     }
 
@@ -415,7 +439,7 @@
       display: flex;
       justify-content: space-between;
       padding: 10px 15px;
-      border-bottom: 1px solid rgba(255,255,255,.15);
+      border-bottom: 1px solid rgba(255, 255, 255, .15);
       color: #a9c0b7;
       font-family: var(--mono);
       font-size: 10px;
@@ -432,9 +456,17 @@
       tab-size: 2;
     }
 
-    .token-key { color: #f3bc76; }
-    .token-string { color: #b6d9b3; }
-    .token-muted { color: #809996; }
+    .token-key {
+      color: #f3bc76;
+    }
+
+    .token-string {
+      color: #b6d9b3;
+    }
+
+    .token-muted {
+      color: #809996;
+    }
 
     .step-grid {
       display: grid;
@@ -448,7 +480,7 @@
       padding: 17px 18px;
       border-right: 1px solid var(--line);
       border-bottom: 1px solid var(--line);
-      background: rgba(255,254,249,.48);
+      background: rgba(255, 254, 249, .48);
     }
 
     .step-no {
@@ -490,7 +522,9 @@
       font-weight: 800;
     }
 
-    .message-content { color: var(--muted); }
+    .message-content {
+      color: var(--muted);
+    }
 
     .config-list {
       display: grid;
@@ -590,14 +624,35 @@
     }
 
     @media print {
-      body { background: white; }
-      .layout { display: block; max-width: none; padding: 0; }
-      .rail { display: none; }
-      .lesson-section { break-inside: avoid; }
-      .loop-figure, .callout, .step, .metric, .final-band { print-color-adjust: exact; }
+      body {
+        background: white;
+      }
+
+      .layout {
+        display: block;
+        max-width: none;
+        padding: 0;
+      }
+
+      .rail {
+        display: none;
+      }
+
+      .lesson-section {
+        break-inside: avoid;
+      }
+
+      .loop-figure,
+      .callout,
+      .step,
+      .metric,
+      .final-band {
+        print-color-adjust: exact;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="layout">
     <aside class="rail" aria-label="Chapter navigation">
@@ -619,7 +674,8 @@
       <header class="hero">
         <div class="eyebrow">Chapter 01 <span aria-hidden="true">/</span> Agent foundations</div>
         <h1>A coding agent<br>is a <em>loop.</em></h1>
-        <p class="dek">A model proposes the next action. Python executes it, returns the result, and asks the model what to do next.</p>
+        <p class="dek">A model proposes the next action. Python executes it, returns the result, and asks the model what
+          to do next.</p>
         <div class="learning-row" aria-label="Learning goals">
           <div class="learning-item"><b>01</b><span>Separate model decisions from host execution.</span></div>
           <div class="learning-item"><b>02</b><span>Trace a tool call through the message history.</span></div>
@@ -633,7 +689,8 @@
           <div>
             <div class="section-kicker">The central idea</div>
             <h2>Decide. Execute. Feed back.</h2>
-            <p class="section-intro">The model does not run Python functions. It returns a proposal; the host program decides which registered tool to call and sends the result back in the next request.</p>
+            <p class="section-intro">The model does not run Python functions. It returns a proposal; the host program
+              decides which registered tool to call and sends the result back in the next request.</p>
           </div>
         </div>
         <figure class="loop-figure">
@@ -645,7 +702,8 @@
             <li><small>Observe</small><strong>Tool result</strong></li>
           </ol>
           <div class="loop-return">Add result to history · call model again</div>
-          <figcaption>The cycle repeats until the response has no <code>tool_calls</code>, or the agent reaches its eight-step limit.</figcaption>
+          <figcaption>The cycle repeats until the response has no <code>tool_calls</code>, or the agent reaches its
+            eight-step limit.</figcaption>
         </figure>
       </section>
 
@@ -655,22 +713,44 @@
           <div>
             <div class="section-kicker">The host's capabilities</div>
             <h2>Four functions. One small toolbox.</h2>
-            <p class="section-intro">An agent can only do what its host exposes. The tool registry in <code>agent.py</code> maps the model's requested name to a Python function.</p>
+            <p class="section-intro">An agent can only do what its host exposes. The tool registry in
+              <code>agent.py</code> maps the model's requested name to a Python function.
+            </p>
           </div>
         </div>
         <div class="two-column">
           <table class="tool-table">
-            <thead><tr><th>Tool</th><th>What the host does</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Tool</th>
+                <th>What the host does</th>
+              </tr>
+            </thead>
             <tbody>
-              <tr><td><code>write_file(path, content)</code></td><td>Writes text to a file under the working directory by default.</td></tr>
-              <tr><td><code>edit_file(path, old, new)</code></td><td>Replaces the first matching occurrence in a file.</td></tr>
-              <tr><td><code>read_file(path)</code></td><td>Reads a file and returns its text.</td></tr>
-              <tr><td><code>run(command)</code></td><td>Runs a shell command with root <code>work/</code> as its current directory.</td></tr>
+              <tr>
+                <td><code>write_file(path, content)</code></td>
+                <td>Writes text to a file under the working directory by default.</td>
+              </tr>
+              <tr>
+                <td><code>edit_file(path, old, new)</code></td>
+                <td>Replaces the first matching occurrence in a file.</td>
+              </tr>
+              <tr>
+                <td><code>read_file(path)</code></td>
+                <td>Reads a file and returns its text.</td>
+              </tr>
+              <tr>
+                <td><code>run(command)</code></td>
+                <td>Runs a shell command with root <code>work/</code> as its current directory.</td>
+              </tr>
             </tbody>
           </table>
           <aside class="callout">
             <span class="callout-label">Important · not a sandbox</span>
-            <p>The agent always uses the repository-root <code>work/</code> directory, even if launched from <code>src/</code>. But file paths are not contained there, and <code>run()</code> uses <code>shell=True</code>. Commands run with the user's permissions. Use trusted prompts only.</p>
+            <p>The agent always uses the repository-root <code>work/</code> directory, even if launched from
+              <code>src/</code>. But file paths are not contained there, and <code>run()</code> uses
+              <code>shell=True</code>. Commands run with the user's permissions. Use trusted prompts only.
+            </p>
           </aside>
         </div>
       </section>
@@ -681,15 +761,20 @@
           <div>
             <div class="section-kicker">Who does what?</div>
             <h2>The model asks. The host acts.</h2>
-            <p class="section-intro">Tool schemas advertise available functions in the chat request. A schema is an interface description—not permission for the model to execute code on its own.</p>
+            <p class="section-intro">Tool schemas advertise available functions in the chat request. A schema is an
+              interface description—not permission for the model to execute code on its own.</p>
           </div>
         </div>
         <div class="two-column">
           <ol class="handoff-list">
-            <li><strong>Describe tools</strong><span>The request includes JSON schemas: names, arguments, and required fields.</span></li>
-            <li><strong>Receive a proposal</strong><span>The assistant response names a tool and provides JSON arguments.</span></li>
-            <li><strong>Dispatch in Python</strong><span>The host decodes arguments and calls the matching function in <code>TOOLS</code>.</span></li>
-            <li><strong>Return the result</strong><span>The host adds a <code>role: "tool"</code> message with the matching call ID.</span></li>
+            <li><strong>Describe tools</strong><span>The request includes JSON schemas: names, arguments, and required
+                fields.</span></li>
+            <li><strong>Receive a proposal</strong><span>The assistant response names a tool and provides JSON
+                arguments.</span></li>
+            <li><strong>Dispatch in Python</strong><span>The host decodes arguments and calls the matching function in
+                <code>TOOLS</code>.</span></li>
+            <li><strong>Return the result</strong><span>The host adds a <code>role: "tool"</code> message with the
+                matching call ID.</span></li>
           </ol>
           <div class="code-panel" aria-label="Example tool schema">
             <div class="code-caption"><span>OpenAI-compatible schema</span><span>write_file</span></div>
@@ -717,21 +802,43 @@
           <div>
             <div class="section-kicker">The loop's working memory</div>
             <h2>Every turn is sent again.</h2>
-            <p class="section-intro">The chat API is stateless. The agent keeps the conversation in a Python list and resends that history with each request, including assistant tool calls and host results.</p>
+            <p class="section-intro">The chat API is stateless. The agent keeps the conversation in a Python list and
+              resends that history with each request, including assistant tool calls and host results.</p>
           </div>
         </div>
         <div class="step-grid">
-          <article class="step"><span class="step-no">01 · START</span><h3>System + user</h3><p>The instructions and request form the first message history.</p></article>
-          <article class="step"><span class="step-no">02 · PROPOSE</span><h3>Assistant tool call</h3><p>The model asks for a tool and gives it a unique call ID.</p></article>
-          <article class="step"><span class="step-no">03 · EXECUTE</span><h3>Host runs function</h3><p>The Python process executes the registered function and captures a result.</p></article>
-          <article class="step"><span class="step-no">04 · REPLY</span><h3>Tool message</h3><p>The result is added with <code>tool_call_id</code> so it matches the request.</p></article>
-          <article class="step"><span class="step-no">05 · REPEAT</span><h3>Send history again</h3><p>The model sees what happened and can request another action.</p></article>
-          <article class="step"><span class="step-no">06 · FINISH</span><h3>No more tools</h3><p>A response without tool calls ends the loop; eight steps is the maximum.</p></article>
+          <article class="step"><span class="step-no">01 · START</span>
+            <h3>System + user</h3>
+            <p>The instructions and request form the first message history.</p>
+          </article>
+          <article class="step"><span class="step-no">02 · PROPOSE</span>
+            <h3>Assistant tool call</h3>
+            <p>The model asks for a tool and gives it a unique call ID.</p>
+          </article>
+          <article class="step"><span class="step-no">03 · EXECUTE</span>
+            <h3>Host runs function</h3>
+            <p>The Python process executes the registered function and captures a result.</p>
+          </article>
+          <article class="step"><span class="step-no">04 · REPLY</span>
+            <h3>Tool message</h3>
+            <p>The result is added with <code>tool_call_id</code> so it matches the request.</p>
+          </article>
+          <article class="step"><span class="step-no">05 · REPEAT</span>
+            <h3>Send history again</h3>
+            <p>The model sees what happened and can request another action.</p>
+          </article>
+          <article class="step"><span class="step-no">06 · FINISH</span>
+            <h3>No more tools</h3>
+            <p>A response without tool calls ends the loop; eight steps is the maximum.</p>
+          </article>
         </div>
         <div class="message-example" aria-label="Conversation message example">
-          <div class="message-role">assistant</div><div class="message-content">tool call: <code>write_file(...)</code>, ID <code>call_01</code></div>
-          <div class="message-role">tool</div><div class="message-content"><code>tool_call_id: call_01</code> · Created hello.py</div>
-          <div class="message-role">assistant</div><div class="message-content">final answer with no <code>tool_calls</code> · the loop ends</div>
+          <div class="message-role">assistant</div>
+          <div class="message-content">tool call: <code>write_file(...)</code>, ID <code>call_01</code></div>
+          <div class="message-role">tool</div>
+          <div class="message-content"><code>tool_call_id: call_01</code> · Created hello.py</div>
+          <div class="message-role">assistant</div>
+          <div class="message-content">final answer with no <code>tool_calls</code> · the loop ends</div>
         </div>
       </section>
 
@@ -741,15 +848,26 @@
           <div>
             <div class="section-kicker">The API boundary</div>
             <h2>Plain HTTP, explicit inputs.</h2>
-            <p class="section-intro">The project uses Python's standard library for JSON and HTTP. The request goes to OpenRouter's OpenAI-compatible chat-completions endpoint.</p>
+            <p class="section-intro">The project uses Python's standard library for JSON and HTTP. The request goes to
+              OpenRouter's OpenAI-compatible chat-completions endpoint.</p>
           </div>
         </div>
         <dl class="config-list">
-          <dt>API key</dt><dd><code>OPENROUTER_API_KEY</code> environment variable, then the matching line in root <code>OPENROUTER.txt</code>.</dd>
-          <dt>Model</dt><dd><code>MODEL</code> environment variable, then root <code>OPENROUTER.txt</code>, then <code>deepseek/deepseek-v4.1-flash</code>.</dd>
-          <dt>Endpoint</dt><dd><code>https://openrouter.ai/api/v1/chat/completions</code></dd>
-          <dt>Working files</dt><dd>Root-level <code>work/</code>, anchored from <code>src/agent.py</code> so launch location does not change it.</dd>
-          <dt>UI wording</dt><dd><code>src/ui.json</code> supplies the labels and Rich styles used by <code>src/ui.py</code>.</dd>
+          <dt>API key</dt>
+          <dd><code>OPENROUTER_API_KEY</code> environment variable, then the matching line in root
+            <code>OPENROUTER.txt</code>.
+          </dd>
+          <dt>Model</dt>
+          <dd><code>MODEL</code> environment variable, then root <code>OPENROUTER.txt</code>, then
+            <code>deepseek/deepseek-v4.1-flash</code>.
+          </dd>
+          <dt>Endpoint</dt>
+          <dd><code>https://openrouter.ai/api/v1/chat/completions</code></dd>
+          <dt>Working files</dt>
+          <dd>Root-level <code>work/</code>, anchored from <code>src/agent.py</code> so launch location does not change
+            it.</dd>
+          <dt>UI wording</dt>
+          <dd><code>src/ui.json</code> supplies the labels and Rich styles used by <code>src/ui.py</code>.</dd>
         </dl>
       </section>
 
@@ -759,15 +877,20 @@
           <div>
             <div class="section-kicker">What the user sees</div>
             <h2>Rich makes the loop legible.</h2>
-            <p class="section-intro"><code>UI</code> renders the request, model text, tool calls, code, results, and final status. The footer is wired to usage data returned by the API.</p>
+            <p class="section-intro"><code>UI</code> renders the request, model text, tool calls, code, results, and
+              final status. The footer is wired to usage data returned by the API.</p>
           </div>
         </div>
         <div class="metric-line">
-          <div class="metric"><b>CONTEXT ESTIMATE</b><span>Latest <code>prompt_tokens</code>. A percentage appears only if the response includes <code>context_limit</code>.</span></div>
-          <div class="metric"><b>TOTAL TOKENS</b><span>Prompt and completion tokens accumulated over model calls.</span></div>
-          <div class="metric"><b>COST SO FAR</b><span>Sum of response <code>cost</code> values when the provider supplies them.</span></div>
+          <div class="metric"><b>CONTEXT ESTIMATE</b><span>Latest <code>prompt_tokens</code>. A percentage appears only
+              if the response includes <code>context_limit</code>.</span></div>
+          <div class="metric"><b>TOTAL TOKENS</b><span>Prompt and completion tokens accumulated over model calls.</span>
+          </div>
+          <div class="metric"><b>COST SO FAR</b><span>Sum of response <code>cost</code> values when the provider
+              supplies them.</span></div>
         </div>
-        <p class="section-intro">If a provider omits usage fields, the app keeps the last available values. Tests use fixed responses and do not need a live API key.</p>
+        <p class="section-intro">If a provider omits usage fields, the app keeps the last available values. Tests use
+          fixed responses and do not need a live API key.</p>
       </section>
 
       <section class="lesson-section" id="run">
@@ -776,7 +899,8 @@
           <div>
             <div class="section-kicker">Run the demo</div>
             <h2>Watch a request become work.</h2>
-            <p class="section-intro">Set an OpenRouter key, launch the agent from <code>src/</code>, then watch the model's proposed actions and the host's results.</p>
+            <p class="section-intro">Set an OpenRouter key, launch the agent from <code>src/</code>, then watch the
+              model's proposed actions and the host's results.</p>
           </div>
         </div>
         <div class="final-band">
@@ -801,4 +925,5 @@ uv run agent.py "write a hello world script and run it"</code></pre>
     </main>
   </div>
 </body>
+
 </html>
