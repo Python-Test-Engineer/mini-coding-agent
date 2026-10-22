@@ -1,8 +1,13 @@
 """Verify the terminal UI renders completion and usage details."""
 
+import sys
 import unittest
+from pathlib import Path
 
 from rich.console import Console
+
+# The app modules remain under src/ and use imports relative to that directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from ui import UI
 

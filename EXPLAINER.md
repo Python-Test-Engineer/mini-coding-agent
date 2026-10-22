@@ -3,14 +3,15 @@
 `src/agent.py` is a small, working **agentic coding loop**: a model chooses
 tools, the Python host executes them, and their results go back to the model.
 It demonstrates the core pattern used by coding agents without an agent
-framework or LLM SDK. The only third-party dependency is `rich`, used for the
-console interface; HTTP, JSON, filesystem, and process operations use the
-Python standard library.
+framework or LLM SDK. The agent uses `rich` for its console interface; HTTP,
+JSON, filesystem, and process operations use the Python standard library.
 
 The app lives in `src/`: `agent.py` owns the OpenRouter request, tool functions,
-and agent loop; `ui.py` renders the console; `ui.json` configures its labels
-and Rich styles; and `work/` is the intended working directory for generated
-files and commands. `demo-prompt.md` contains a sample request.
+agent loop, and usage tracking; `ui.py` renders the console and footer; `ui.json`
+configures its labels and Rich styles; `tests/` contains the `unittest` suite;
+and `work/` is the intended working directory for generated files and commands.
+`demo-prompt.md` contains a sample request. The root `main.py` is only a greeting
+stub; launch the actual agent with `src/agent.py`.
 
 The whole point is to show *what an agent actually is*: not one magic LLM call,
 but a **loop** in which the model repeatedly decides what to do, the host executes
@@ -37,10 +38,11 @@ are exposed. `work/` is the intended working directory, but not a security sandb
 | `read_file` | `(path)` | Return a file's text contents |
 | `run` | `(command)` | Run a shell command with `work/` as its current directory |
 
-When launched from `src/`, the agent can create `hello.py` in `src/work/`, run
-`python hello.py`, inspect the output, edit the script, and run it again — a
-complete fix cycle. `run()` returns stdout, or stderr if stdout is empty; it
-does not report the process exit code separately.
+The agent anchors `WORKDIR` to the repository root, so it can create
+`work/hello.py` even when launched from `src/`, run `python hello.py`, inspect
+the output, edit the script, and run it again — a complete fix cycle. `run()`
+uses `work/` as the command's current directory and returns stdout, or stderr if
+stdout is empty; it does not report the process exit code separately.
 
 > **Security note:** `work/` is only the default working directory, not a
 > sandbox. File tools do not check that paths stay inside it, and `run()` uses
@@ -150,7 +152,11 @@ Each `UI` method renders one part of the interaction:
 - `show_code()` uses Rich `Syntax` to display file content with Python
   highlighting and the configured theme.
 - `show_result()` puts tool output in a result `Panel`; `show_done()` and
-  `show_max_steps()` render the completion and step-limit messages.
+  `show_max_steps()` render the completion and step-limit messages, then call
+  `footer()` to show token and cost usage.
+- `footer()` shows the latest prompt size, totals for prompt and completion
+  tokens, and cumulative cost. It shows context-window percentage only when a
+  context limit is available; otherwise it labels the limit as unavailable.
 
 Rich components take styles separately from their text: for example, a
 `Panel` has a title style and border style, while a `Text` object can style
@@ -181,10 +187,12 @@ uv run agent.py "write a hello world script and run it"
 # or override: MODEL=openai/gpt-4o-mini OPENROUTER_API_KEY=sk-or-... uv run agent.py "..."
 ```
 
-The `src/pyproject.toml` declares Python 3.11+ and `rich`; `uv run` installs
-the project dependencies when needed. Run from `src/` so the relative `work/`
-directory is created there. If no request is supplied on the command line,
-`ui.py` prompts for one and displays the selected model name.
+The root `pyproject.toml` declares Python 3.11+ and the project dependencies;
+`uv run` installs them into the project environment when needed. The app can be
+launched from `src/` as shown above, but `WORKDIR` is anchored to the repository
+root, so generated files and shell commands always use root-level `work/`.
+If no request is supplied on the command line, `ui.py` prompts for one and
+displays the selected model name.
 
 When run without a command-line request, the prompt starts with the active model
 name, for example: `[deepseek/deepseek-v4.1-flash] Request ›`. It uses the same
@@ -194,6 +202,26 @@ in `OPENROUTER.txt`, then the built-in fallback.
 Watch the terminal: you'll see the model's text, each `tool write_file({...})`
 call, the result panels, and the final response. The log makes each loop step
 visible as the app runs.
+
+## Usage metrics and tests
+
+Each chat-completions response may include a `usage` object. `agent.py` reads
+`prompt_tokens`, `completion_tokens`, and `cost` from that object: prompt and
+completion tokens and cost are accumulated across model calls, while the latest
+prompt-token count is used as the current context estimate. If a response omits
+usage fields, the app keeps the last available values. The context limit is not
+assumed; the footer shows a percentage only if the response provides
+`context_limit`.
+
+The tests live in the root `tests/` directory and use Python's standard-library
+`unittest`.
+They capture Rich output and replace the network call with a fixed response, so
+the suite does not make an OpenRouter request or require an API key. From the
+repository root, run them with the project environment:
+
+```sh
+uv run python -m unittest discover -s tests -v
+```
 
 ---
 

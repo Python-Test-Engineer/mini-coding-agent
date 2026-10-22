@@ -25,8 +25,9 @@ from ui import UI
 # One UI instance shares a single Rich console for the whole conversation.
 ui = UI()
 
-# Tool file operations are relative to this directory; it is not a security sandbox.
-WORKDIR = Path("work")
+# Anchor generated files at the repository root, regardless of launch directory.
+ROOT_DIR = Path(__file__).resolve().parent.parent
+WORKDIR = ROOT_DIR / "work"
 WORKDIR.mkdir(exist_ok=True)
 
 

@@ -13,7 +13,8 @@ are sent back to the model until it returns a final answer.
 
 The code is in `src/agent.py`; `src/ui.py` and `src/ui.json` configure the
 terminal interface. `src/demo-prompt.md` contains an example request. Generated
-files and commands use `src/work/` when the agent is launched from `src/`.
+files and commands use the repository-root `work/` directory, regardless of
+where the agent is launched.
 
 ## Requirements
 
@@ -44,8 +45,8 @@ entry in `OPENROUTER.txt`; if neither is set, the app uses
 uv run agent.py
 ```
 
-The app will prompt for a request. Run commands from `src/` so generated files
-go to `src/work/`.
+The app will prompt for a request. The agent always stores generated files in
+the repository-root `work/` directory, including when launched from `src/`.
 
 ## Safety note
 

@@ -1,15 +1,25 @@
 """Verify usage metrics flow from model replies into the UI footer."""
 
+import sys
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from rich.console import Console
+
+# The app modules remain under src/ and use imports relative to that directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import agent
 from ui import UI
 
 
 class UsageMetricTests(unittest.TestCase):
+    def test_work_directory_is_anchored_at_repository_root(self):
+        expected = Path(agent.__file__).resolve().parent.parent / "work"
+
+        self.assertEqual(agent.WORKDIR, expected)
+
     def test_accumulates_input_output_and_cost_across_responses(self):
         metrics = {
             "last_input_tokens": 0,
