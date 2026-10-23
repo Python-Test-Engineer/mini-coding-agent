@@ -9,6 +9,9 @@ LLM calls go to OpenRouter. Settings are loaded from the repository-root .env;
 explicit process environment variables take precedence.
 
 Run:  cd src && uv run agent.py "write a hello world script and run it"
+
+After the first answer, the agent keeps prompting for follow-up requests. Type
+"exit" or "quit" to end the conversation.
 """
 
 from __future__ import annotations
@@ -210,13 +213,9 @@ def _accumulate_usage(metrics: dict, usage: dict) -> None:
         metrics["context_limit"] = int(context_limit)
 
 
-# --------------------------------------------------------------------------
-# THE LOOP
-# --------------------------------------------------------------------------
-def agent_loop(prompt: str, max_steps: int = 8) -> None:
-    ui.show_start(prompt)
-    # Messages are the shared conversation state sent again on every model call.
-    metrics = {
+def _new_metrics() -> dict:
+    """Create the usage totals shared by turns in one conversation."""
+    return {
         "last_input_tokens": 0,
         "context_limit": None,
         "total_input_tokens": 0,
@@ -224,10 +223,24 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
         "total_cost": 0.0,
     }
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
-    ]
+
+# --------------------------------------------------------------------------
+# THE LOOP
+# --------------------------------------------------------------------------
+def agent_loop(
+    prompt: str,
+    max_steps: int = 8,
+    messages: list[dict] | None = None,
+    metrics: dict | None = None,
+) -> None:
+    ui.show_start(prompt)
+    # Reuse these objects across turns so follow-up requests retain context and
+    # the footer can show usage for the whole conversation.
+    if messages is None:
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if metrics is None:
+        metrics = _new_metrics()
+    messages.append({"role": "user", "content": prompt})
 
     for step in range(1, max_steps + 1):
         reply = chat(messages)
@@ -239,6 +252,8 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
 
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
+            # Keep the final answer too, so the next user turn can refer to it.
+            messages.append(msg)
             ui.blank_line()
             ui.show_done(metrics)
             return
@@ -269,8 +284,28 @@ def agent_loop(prompt: str, max_steps: int = 8) -> None:
 
 
 if __name__ == "__main__":
-    # A command-line request skips the prompt; without one, ask interactively.
+    # Keep one history and usage summary for the full interactive conversation.
+    # A command-line request starts the conversation before follow-up prompts.
     prompt = " ".join(sys.argv[1:]).strip()
-    if not prompt:
-        prompt = ui.prompt(_model()).strip()
-    agent_loop(prompt)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    metrics = _new_metrics()
+
+    if prompt:
+        agent_loop(prompt, messages=messages, metrics=metrics)
+
+    ui.console.print("Ask another request, or type 'exit' or 'quit' to finish.")
+    while True:
+        try:
+            prompt = ui.prompt(_model()).strip()
+        except (EOFError, KeyboardInterrupt):
+            # EOF (for example, piped input ending) and Ctrl+C both end cleanly.
+            ui.blank_line()
+            break
+
+        # Ignore blank lines without sending an empty request to the model.
+        if not prompt:
+            continue
+        if prompt.lower() in {"exit", "quit"}:
+            break
+
+        agent_loop(prompt, messages=messages, metrics=metrics)
