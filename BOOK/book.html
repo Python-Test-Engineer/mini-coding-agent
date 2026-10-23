@@ -3,11 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="The complete mini coding agent workshop book, combined from its chapter Markdown files.">
+  <meta name="description" content="The complete Mini Coding Agent workshop book, rendered from its chapter Markdown files.">
   <title>Mini Coding Agent Workshop Book</title>
   <style>
     :root {
       color-scheme: light;
+      /* Change this one value to resize the left table-of-contents column. */
+      --toc-width: 25%;
       --paper: #f3f1e9;
       --surface: #fffef9;
       --ink: #172d31;
@@ -15,6 +17,7 @@
       --line: #cbd2ca;
       --accent: #c44b2d;
       --accent-pale: #f5e2d7;
+      --deep: #17373b;
       --code: #13282c;
       --code-ink: #e9f0e8;
       --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
@@ -33,15 +36,16 @@
     a:hover { color: var(--accent); }
     .layout {
       display: grid;
-      grid-template-columns: 27.1875rem minmax(0, 1fr);
+      grid-template-columns: var(--toc-width) minmax(0, 1fr);
       min-height: 100vh;
+      width: 100%;
     }
     .sidebar {
       position: sticky;
       top: 0;
       height: 100vh;
       overflow-y: auto;
-      padding: 2rem 1.25rem 2rem 1.5rem;
+      padding: 2rem 1.5rem;
       background: var(--surface);
       border-right: .0625rem solid var(--line);
     }
@@ -79,10 +83,40 @@
       text-decoration: none;
     }
     .toc a:hover, .toc a:focus-visible { background: var(--accent-pale); color: #812d1b; }
-    .toc .chapter-title { font-weight: 750; }
+    .toc .chapter-link { font-weight: 750; }
     .toc ul { margin: .15rem 0 .25rem .55rem; padding-left: .65rem; border-left: .0625rem solid var(--line); }
     .toc ul a { color: var(--muted); font-size: 1rem; }
-    main { min-width: 0; padding: clamp(1.5rem, 5vw, 4.5rem); font-size: 1.2rem; }
+    main { min-width: 0; padding: clamp(1.5rem, 3vw, 4rem); font-size: 1.2rem; }
+    .reader-controls {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .5rem;
+      width: min(100%, 84.375rem);
+      margin: 0 auto 1rem;
+      padding: .5rem .75rem;
+      border: .0625rem solid var(--line);
+      border-radius: .375rem;
+      background: var(--paper);
+    }
+    .reader-controls button {
+      min-width: 2.4em;
+      padding: .3rem .65rem;
+      border: .0625rem solid var(--line);
+      border-radius: .25rem;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .reader-controls button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .reader-controls button:focus-visible { outline: .15rem solid var(--accent); outline-offset: .1rem; }
+    .reader-controls button:disabled { cursor: not-allowed; opacity: .45; }
+    .reader-controls output { min-width: 3.5ch; color: var(--muted); text-align: center; font-size: .85em; }
+    .reader-content { font-size: 1.2rem; }
     .book-header, .chapter {
       width: min(100%, 84.375rem);
       margin-inline: auto;
@@ -90,7 +124,7 @@
     .book-header {
       margin-bottom: 3rem;
       padding: 2.2rem 2.4rem;
-      background: var(--deep, #17373b);
+      background: var(--deep);
       border-radius: .5rem;
       color: #f8f5ea;
     }
@@ -98,7 +132,7 @@
     .book-header h2 {
       margin: 0;
       font-family: var(--serif);
-      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-size: 3em;
       line-height: 1.1;
     }
     .chapter {
@@ -118,10 +152,10 @@
       line-height: 1.25;
       scroll-margin-top: 1.5rem;
     }
-    .chapter h1 { margin: 0 0 1.5rem; font-size: clamp(2.2rem, 4.8vw, 3.2rem); }
-    .chapter h2 { margin: 2.4rem 0 .8rem; padding-bottom: .35rem; border-bottom: .0625rem solid var(--line); font-size: 2rem; }
-    .chapter h3 { margin: 1.8rem 0 .6rem; font-size: 1.55rem; }
-    .chapter h4, .chapter h5, .chapter h6 { margin: 1.4rem 0 .5rem; font-size: 1.3rem; }
+    .chapter h1 { margin: 0 0 1.5rem; font-size: 2.2em; }
+    .chapter h2 { margin: 2.4rem 0 .8rem; padding-bottom: .35rem; border-bottom: .0625rem solid var(--line); font-size: 1.67em; }
+    .chapter h3 { margin: 1.8rem 0 .6rem; font-size: 1.29em; }
+    .chapter h4, .chapter h5, .chapter h6 { margin: 1.4rem 0 .5rem; font-size: 1.08em; }
     .chapter p { margin: .8rem 0; }
     .chapter ul, .chapter ol { padding-left: 1.6rem; }
     .chapter li { margin: .3rem 0; }
@@ -139,7 +173,7 @@
       border-radius: .3125rem;
       background: var(--code);
       color: var(--code-ink);
-      font: 1.05rem/1.6 var(--mono);
+      font: .875em/1.6 var(--mono);
       tab-size: 4;
     }
     .chapter code { font-family: var(--mono); font-size: .9em; }
@@ -155,7 +189,13 @@
     .chapter hr { margin: 2rem 0; border: 0; border-top: .0625rem solid var(--line); }
     @media (max-width: 1025px) {
       .layout { grid-template-columns: 1fr; }
-      .sidebar { position: relative; height: auto; max-height: 45vh; border-right: 0; border-bottom: .0625rem solid var(--line); }
+      .sidebar {
+        position: relative;
+        height: auto;
+        max-height: 45vh;
+        border-right: 0;
+        border-bottom: .0625rem solid var(--line);
+      }
       main { padding: 1rem; }
       .book-header { padding: 1.5rem; }
       .chapter { padding: 1.2rem; }
@@ -163,6 +203,7 @@
     @media print {
       .layout { display: block; }
       .sidebar { display: none; }
+      .reader-controls { display: none; }
       main { padding: 0; }
       .book-header, .chapter { width: 100%; box-shadow: none; break-inside: auto; }
       .chapter { border: 0; padding: 0; }
@@ -176,9 +217,17 @@
       <p class="book-label">Workshop workbook</p>
       <h1>Mini Coding Agent</h1>
       <p class="toc-heading">Contents</p>
-      <nav aria-label="Table of contents"><ol class="toc"><li class="chapter-item"><a class="chapter-title" href="#chapter-01">How mini-coding-agent works</a><ul><li><a href="#chapter-01-the-four-tools-the-agent-can-use">The four tools the agent can use</a></li><li><a href="#chapter-01-how-the-loop-gets-the-model-to-call-tools">How the loop gets the model to call tools</a></li><li><a href="#chapter-01-the-message-history-that-drives-it">The message history that drives it</a></li><li><a href="#chapter-01-configuration-the-api-call">Configuration &amp; the API call</a></li><li><a href="#chapter-01-console-ui-and-configuration">Console UI and configuration</a><ul><li><a href="#chapter-01-how-ui-py-uses-rich">How ui.py uses Rich</a></li><li><a href="#chapter-01-what-ui-json-controls">What ui.json controls</a></li></ul></li><li><a href="#chapter-01-running-it">Running it</a></li><li><a href="#chapter-01-usage-metrics-and-tests">Usage metrics and tests</a></li><li><a href="#chapter-01-what-a-fuller-agent-adds-the-demo-s-roadmap">What a fuller agent adds (the demo&#x27;s roadmap)</a></li></ul></li><li class="chapter-item"><a class="chapter-title" href="#chapter-02">Chapter 02 - Lifecycle hooks and an observable agent loop</a><ul><li><a href="#chapter-02-why-hooks-belong-at-lifecycle-boundaries">Why hooks belong at lifecycle boundaries</a></li><li><a href="#chapter-02-the-hook-contract-in-src-lifecycle-py">The hook contract in src/lifecycle.py</a></li><li><a href="#chapter-02-calling-hooks-from-the-agent-loop">Calling hooks from the agent loop</a><ul><li><a href="#chapter-02-hook-failures-are-contained">Hook failures are contained</a></li></ul></li><li><a href="#chapter-02-write-a-hook">Write a hook</a></li><li><a href="#chapter-02-the-lifecycle-trace-belongs-to-the-ui">The lifecycle trace belongs to the UI</a></li><li><a href="#chapter-02-hooks-around-a-constrained-workspace">Hooks around a constrained workspace</a><ul><li><a href="#chapter-02-the-important-limit">The important limit</a></li><li><a href="#chapter-02-sandbox-audit-hooks-and-ui-status">Sandbox audit hooks and UI status</a></li><li><a href="#chapter-02-read-access-and-write-access-are-different">Read access and write access are different</a></li></ul></li><li><a href="#chapter-02-tests-for-extension-points">Tests for extension points</a></li><li><a href="#chapter-02-chapter-02-checklist">Chapter 02 checklist</a></li></ul></li></ol></nav>
+      <nav aria-label="Table of contents"><ol class="toc"><li class="chapter-item"><a class="chapter-link" href="#chapter-01">How mini-coding-agent works</a><ul><li><a href="#chapter-01-the-four-tools-the-agent-can-use">The four tools the agent can use</a></li><li><a href="#chapter-01-how-the-loop-gets-the-model-to-call-tools">How the loop gets the model to call tools</a></li><li><a href="#chapter-01-the-message-history-that-drives-it">The message history that drives it</a></li><li><a href="#chapter-01-configuration-the-api-call">Configuration &amp; the API call</a></li><li><a href="#chapter-01-console-ui-and-configuration">Console UI and configuration</a><ul><li><a href="#chapter-01-how-ui-py-uses-rich">How ui.py uses Rich</a></li><li><a href="#chapter-01-what-ui-json-controls">What ui.json controls</a></li></ul></li><li><a href="#chapter-01-running-it">Running it</a></li><li><a href="#chapter-01-usage-metrics-and-tests">Usage metrics and tests</a></li><li><a href="#chapter-01-what-a-fuller-agent-adds-the-demo-s-roadmap">What a fuller agent adds (the demo&#x27;s roadmap)</a></li></ul></li><li class="chapter-item"><a class="chapter-link" href="#chapter-02">Chapter 02 - Lifecycle hooks and an observable agent loop</a><ul><li><a href="#chapter-02-why-hooks-belong-at-lifecycle-boundaries">Why hooks belong at lifecycle boundaries</a></li><li><a href="#chapter-02-the-hook-contract-in-src-lifecycle-py">The hook contract in src/lifecycle.py</a></li><li><a href="#chapter-02-calling-hooks-from-the-agent-loop">Calling hooks from the agent loop</a><ul><li><a href="#chapter-02-hook-failures-are-contained">Hook failures are contained</a></li></ul></li><li><a href="#chapter-02-write-a-hook">Write a hook</a></li><li><a href="#chapter-02-the-lifecycle-trace-belongs-to-the-ui">The lifecycle trace belongs to the UI</a></li><li><a href="#chapter-02-hooks-around-a-constrained-workspace">Hooks around a constrained workspace</a><ul><li><a href="#chapter-02-the-important-limit">The important limit</a></li><li><a href="#chapter-02-sandbox-audit-hooks-and-ui-status">Sandbox audit hooks and UI status</a></li><li><a href="#chapter-02-read-access-and-write-access-are-different">Read access and write access are different</a></li></ul></li><li><a href="#chapter-02-tests-for-extension-points">Tests for extension points</a></li><li><a href="#chapter-02-chapter-02-checklist">Chapter 02 checklist</a></li></ul></li></ol></nav>
     </aside>
     <main>
+      <div class="reader-controls" role="group" aria-label="Reading text size">
+        <span>Text size</span>
+        <button id="text-size-down" type="button" aria-label="Decrease text size">A−</button>
+        <output id="text-size-value" aria-live="polite">100%</output>
+        <button id="text-size-up" type="button" aria-label="Increase text size">A+</button>
+        <button id="text-size-reset" type="button">Reset</button>
+      </div>
+      <div class="reader-content" id="reader-content">
       <header class="book-header">
         <h2>Mini Coding Agent</h2>
         <p>Complete workshop book</p>
@@ -910,7 +959,45 @@ that loop observable and extensible while separating host logic, extension
 code, terminal presentation, and file-tool policy. The current process runner
 does not isolate executed code from the operating system.</p>
 </article>
+      </div>
     </main>
   </div>
+  <script>
+    (() => {
+      const reader = document.getElementById('reader-content');
+      const output = document.getElementById('text-size-value');
+      const decrease = document.getElementById('text-size-down');
+      const increase = document.getElementById('text-size-up');
+      const reset = document.getElementById('text-size-reset');
+      const minimum = 0.8;
+      const maximum = 1.6;
+      const step = 0.1;
+      let scale = 1;
+
+      function updateTextSize() {
+        // Change only the right-side reading area; the TOC and controls stay fixed.
+        reader.style.fontSize = `${(1.2 * scale).toFixed(2)}rem`;
+        output.value = `${Math.round(scale * 100)}%`;
+        output.textContent = output.value;
+        decrease.disabled = scale <= minimum;
+        increase.disabled = scale >= maximum;
+      }
+
+      decrease.addEventListener('click', () => {
+        scale = Math.max(minimum, Math.round((scale - step) * 10) / 10);
+        updateTextSize();
+      });
+      increase.addEventListener('click', () => {
+        scale = Math.min(maximum, Math.round((scale + step) * 10) / 10);
+        updateTextSize();
+      });
+      reset.addEventListener('click', () => {
+        scale = 1;
+        updateTextSize();
+      });
+
+      updateTextSize();
+    })();
+  </script>
 </body>
 </html>

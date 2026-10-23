@@ -70,3 +70,11 @@ forward in a later commit.
 - Removed the ignore rule for generated `logs/*.jsonl` files so CH02 audit logs
   stay visible in the checkout, matching the log files present on the CH01
   snapshot. The JSONL logging implementation was already present in CH02.
+
+## Reader text-size controls
+
+- Added `A−`, `A+`, and `Reset` controls above the book's right-side reading
+  area.
+- The controls scale chapter prose, headings, tables, and code from 80% to 160%
+  in 10% steps. The TOC and controls retain their size.
+- Updated `SKILLS/workshop-book/SKILL.md` with the control behavior and range.

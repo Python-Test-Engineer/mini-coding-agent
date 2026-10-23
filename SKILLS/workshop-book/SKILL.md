@@ -25,10 +25,19 @@ Use this guide when editing a chapter or building the combined book page.
 - The preferred appearance is the current page at browser zoom 100%, matching
   the earlier appearance at 125% browser zoom. Implement the scale in the page
   CSS; do not require readers to change browser zoom.
-- Keep the root font size at `125%`. Express fixed layout widths and spacing in
-  `rem` so they scale with the root size. The desktop sidebar is
-  `27.1875rem` (543.75px with a 16px browser default), and the article maximum
-  width is `84.375rem` (1687.5px at that default).
+- Keep the root font size at `125%`. Express fixed spacing in `rem` so it
+  scales with the root size.
+- On desktop, make the left table-of-contents column `25%` of the page width.
+  Set this using the `--toc-width` CSS custom property in `:root`, and use that
+  variable for the grid's first column. To change the proportion, edit that
+  one value (for example, `20%` or `30%`).
+- Let the chapter column use the remaining width, with a readable maximum
+  content width of `84.375rem` (1687.5px with a 16px browser default and the
+  125% root font size).
+- Add accessible `A−`, `A+`, and `Reset` controls above the right-side reading
+  area. Scale its prose, headings, tables, and code without changing the TOC or
+  controls. Keep the default at 100% and provide 80% to 160% sizing in 10%
+  steps, with a live value and disabled buttons at the limits.
 - Scale the responsive breakpoint with the layout. The single-column layout
   begins at `1025px`, corresponding to the previous `820px` breakpoint at
   125% browser zoom.
