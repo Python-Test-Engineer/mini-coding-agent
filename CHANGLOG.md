@@ -86,4 +86,5 @@ forward in a later commit.
   only Chapter 01.
 - Updated the workshop-book skill to exclude stale chapters when rebuilding a
   branch-specific book.
-- Corrected the decrease text-size control label to `A-` and aligned the skill.
+- Matched the text-size controls to the CH02 branch: `Text size`, `A−`, the
+  percentage, `A+`, and `Reset`; updated the skill to require this order.

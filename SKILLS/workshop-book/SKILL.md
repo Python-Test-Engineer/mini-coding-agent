@@ -40,10 +40,11 @@ Use this guide when editing a chapter or building the combined book page.
 - Let the chapter column use the remaining width, with a readable maximum
   content width of `84.375rem` (1687.5px with a 16px browser default and the
   125% root font size).
-- Add accessible `A-`, `A+`, and `Reset` controls above the right-side reading
-  area. Scale its prose, headings, tables, and code without changing the TOC or
-  controls. Keep the default at 100% and provide 80% to 160% sizing in 10%
-  steps, with a live value and disabled buttons at the limits.
+- Add accessible right-side reading controls in this order: `Text size`, `A−`,
+  a live percentage, `A+`, and `Reset`. Keep their appearance and order aligned
+  with the CH02 branch controls. Scale prose, headings, tables, and code without
+  changing the TOC or controls. Default to 100%; provide 80% to 160% sizing in
+  10% steps, with disabled buttons at the limits.
 - Scale the responsive breakpoint with the layout. The single-column layout
   begins at `1025px`, corresponding to the previous `820px` breakpoint at
   125% browser zoom.

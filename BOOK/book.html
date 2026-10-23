@@ -77,8 +77,12 @@ a { color: inherit; }
 .toc-level-3 { padding-left: 0.55rem; }
 .reader { min-width: 0; max-width: 84.375rem; width: 100%; }
 .reading-controls {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.45rem;
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;
@@ -86,7 +90,7 @@ a { color: inherit; }
   border-radius: 0.65rem;
   background: var(--surface);
 }
-.reading-controls .control-label { margin-right: auto; color: var(--muted); font-size: 0.8rem; font-weight: 700; }
+.reading-controls .control-label { color: var(--muted); font-size: 0.8rem; font-weight: 700; }
 .reading-controls button {
   min-width: 2.4rem;
   padding: 0.35rem 0.55rem;
@@ -209,12 +213,12 @@ a { color: inherit; }
 </ol></nav>
   </aside>
   <main class="reader">
-    <div class="reading-controls" aria-label="Reading text size controls">
-      <span class="control-label">Right-side text size</span>
-      <button id="text-smaller" type="button" aria-label="Decrease reading text size">A-</button>
-      <button id="text-larger" type="button" aria-label="Increase reading text size">A+</button>
-      <button id="text-reset" type="button">Reset</button>
+    <div class="reading-controls" role="group" aria-label="Reading text size">
+      <span class="control-label">Text size</span>
+      <button id="text-smaller" type="button" aria-label="Decrease text size">A−</button>
       <output id="text-size-value" aria-live="polite">100%</output>
+      <button id="text-larger" type="button" aria-label="Increase text size">A+</button>
+      <button id="text-reset" type="button">Reset</button>
     </div>
     <div class="book-header"><p>Workshop Book</p><h1>Mini Coding Agent</h1></div>
     <div id="reader-content" class="reader-content">
