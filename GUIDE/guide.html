@@ -1290,6 +1290,9 @@ uv run agent.py "write a hello world script and run it"</code></pre>
             <pre class="run-command"><code>uv run python -m unittest discover -s tests -v</code></pre>
           </div>
         </div>
+        <p class="section-intro">To explore lifecycle hooks and sandbox pass/fail cases without an API key, run
+          <code>uv run python examplesCH02.py</code> from <code>src/</code>. The Rich demo writes its files under
+          <code>work/</code>. See the <a href="../EXAMPLES/EXAMPLES.md">offline examples guide</a> for details.</p>
         <p class="section-intro">With no command-line request, the app prompts for the first one. With the example command, it
           runs that request first. Both modes return to the prompt after each answer and retain the conversation history.
           Lifecycle session hooks run once around the conversation; input and model/tool hooks run for each request. Use
