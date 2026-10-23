@@ -11,12 +11,18 @@ Use this guide when editing a chapter or building the combined book page.
 
 - Treat `BOOK/CHXX.md` files as the lesson source and combine them in filename
   order.
+- Include only chapter files present on the current branch. When a later
+  chapter is absent, remove it from the generated page rather than carrying
+  stale chapter content forward from an earlier HTML build.
 - Keep every heading, paragraph, list, table, and code block in the generated
   HTML. Add navigation and visual styling without silently summarizing or
   rewriting lesson content.
 - Keep explanations appropriate for intermediate Python developers and ensure
   code examples match the implementation for that chapter.
 - Preserve existing chapter text unless the request asks for content changes.
+- For readability edits, aim for 15–20 words per sentence. Split sentences over
+  25 words where this reads naturally, while preserving every fact, caveat, and
+  relationship. Do not shorten code, tables, checklists, or examples.
 - Follow the repository's two-digit chapter naming and corresponding branch
   and tag conventions when chapter release work is requested.
 
@@ -25,10 +31,19 @@ Use this guide when editing a chapter or building the combined book page.
 - The preferred appearance is the current page at browser zoom 100%, matching
   the earlier appearance at 125% browser zoom. Implement the scale in the page
   CSS; do not require readers to change browser zoom.
-- Keep the root font size at `125%`. Express fixed layout widths and spacing in
-  `rem` so they scale with the root size. The desktop sidebar is
-  `27.1875rem` (543.75px with a 16px browser default), and the article maximum
-  width is `84.375rem` (1687.5px at that default).
+- Keep the root font size at `125%`. Express fixed spacing in `rem` so it
+  scales with the root size.
+- On desktop, make the left table-of-contents column `25%` of the page width.
+  Set this using the `--toc-width` CSS custom property in `:root`, and use that
+  variable for the grid's first column. To change the proportion, edit that
+  one value (for example, `20%` or `30%`).
+- Let the chapter column use the remaining width, with a readable maximum
+  content width of `84.375rem` (1687.5px with a 16px browser default and the
+  125% root font size).
+- Add accessible `A-`, `A+`, and `Reset` controls above the right-side reading
+  area. Scale its prose, headings, tables, and code without changing the TOC or
+  controls. Keep the default at 100% and provide 80% to 160% sizing in 10%
+  steps, with a live value and disabled buttons at the limits.
 - Scale the responsive breakpoint with the layout. The single-column layout
   begins at `1025px`, corresponding to the previous `820px` breakpoint at
   125% browser zoom.

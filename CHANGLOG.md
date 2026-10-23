@@ -63,7 +63,27 @@ forward in a later commit.
 ## Later repository layout update
 
 - Renamed the chapter directory from `EXPLAINERS/` to `BOOK/`.
-- The current chapter sources are `BOOK/CH01.md` and `BOOK/CH02.md`, and the
-  current combined page is `BOOK/book.html`.
+- Chapter sources use the `BOOK/CHXX.md` naming pattern, and the combined page
+  is `BOOK/book.html`. The generated page follows the chapter files present on
+  the selected branch.
 - Earlier entries retain the paths that existed when those branch changes were
   made; use the current paths for new changes.
+
+## Book readability and page controls
+
+- Shortened long prose sentences in `BOOK/CH01.md` and `BOOK/CH02.md` while
+  preserving their facts, examples, tables, code, and checklists.
+- Rebuilt `BOOK/book.html` from both Markdown chapter sources with a left-side
+  table of contents, a configurable 25% TOC column, and reading-size controls
+  for the chapter content.
+- Updated `SKILLS/workshop-book/SKILL.md` with sentence-length guidance and the
+  current page layout and control requirements.
+
+## CH01 branch book
+
+- Removed `BOOK/CH02.md` so the branch contains Chapter 01 material only.
+- Rebuilt `BOOK/book.html` from `BOOK/CH01.md`; the table of contents now lists
+  only Chapter 01.
+- Updated the workshop-book skill to exclude stale chapters when rebuilding a
+  branch-specific book.
+- Corrected the decrease text-size control label to `A-` and aligned the skill.
