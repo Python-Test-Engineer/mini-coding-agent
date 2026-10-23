@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="The complete mini coding agent workshop book, combined from its chapter Markdown files.">
+  <title>Mini Coding Agent Workshop Book</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f3f1e9;
+      --surface: #fffef9;
+      --ink: #172d31;
+      --muted: #5c6b68;
+      --line: #cbd2ca;
+      --accent: #c44b2d;
+      --accent-pale: #f5e2d7;
+      --code: #13282c;
+      --code-ink: #e9f0e8;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --serif: Georgia, "Times New Roman", serif;
+    }
+    * { box-sizing: border-box; }
+    html { font-size: 125%; scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.65;
+    }
+    a { color: #9c351f; }
+    a:hover { color: var(--accent); }
+    .layout {
+      display: grid;
+      grid-template-columns: 27.1875rem minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 2rem 1.25rem 2rem 1.5rem;
+      background: var(--surface);
+      border-right: .0625rem solid var(--line);
+    }
+    .book-label {
+      margin: 0 0 .35rem;
+      color: var(--accent);
+      font-size: .9rem;
+      font-weight: 800;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+    .sidebar h1 {
+      margin: 0 0 1.5rem;
+      font-family: var(--serif);
+      font-size: 1.8rem;
+      line-height: 1.2;
+    }
+    .toc-heading {
+      margin: 0 0 .65rem;
+      color: var(--muted);
+      font-size: .9rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .toc, .toc ul { margin: 0; padding: 0; list-style: none; }
+    .toc > li { margin: 0 0 1rem; }
+    .toc a {
+      display: block;
+      padding: .22rem .4rem;
+      border-radius: .25rem;
+      color: var(--ink);
+      font-size: 1.1rem;
+      line-height: 1.4;
+      text-decoration: none;
+    }
+    .toc a:hover, .toc a:focus-visible { background: var(--accent-pale); color: #812d1b; }
+    .toc .chapter-title { font-weight: 750; }
+    .toc ul { margin: .15rem 0 .25rem .55rem; padding-left: .65rem; border-left: .0625rem solid var(--line); }
+    .toc ul a { color: var(--muted); font-size: 1rem; }
+    main { min-width: 0; padding: clamp(1.5rem, 5vw, 4.5rem); font-size: 1.2rem; }
+    .book-header, .chapter {
+      width: min(100%, 84.375rem);
+      margin-inline: auto;
+    }
+    .book-header {
+      margin-bottom: 3rem;
+      padding: 2.2rem 2.4rem;
+      background: var(--deep, #17373b);
+      border-radius: .5rem;
+      color: #f8f5ea;
+    }
+    .book-header p { margin: .35rem 0 0; color: #dbe7df; }
+    .book-header h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      line-height: 1.1;
+    }
+    .chapter {
+      margin-bottom: 3rem;
+      padding: clamp(1.4rem, 4vw, 3.2rem);
+      background: var(--surface);
+      border: .0625rem solid var(--line);
+      border-top: .25rem solid var(--accent);
+      border-radius: .4375rem;
+      box-shadow: 0 .625rem 1.75rem rgb(23 45 49 / 5%);
+      overflow-wrap: anywhere;
+    }
+    .chapter + .chapter { margin-top: 3rem; }
+    .chapter h1, .chapter h2, .chapter h3, .chapter h4, .chapter h5, .chapter h6 {
+      color: var(--ink);
+      font-family: var(--serif);
+      line-height: 1.25;
+      scroll-margin-top: 1.5rem;
+    }
+    .chapter h1 { margin: 0 0 1.5rem; font-size: clamp(2.2rem, 4.8vw, 3.2rem); }
+    .chapter h2 { margin: 2.4rem 0 .8rem; padding-bottom: .35rem; border-bottom: .0625rem solid var(--line); font-size: 2rem; }
+    .chapter h3 { margin: 1.8rem 0 .6rem; font-size: 1.55rem; }
+    .chapter h4, .chapter h5, .chapter h6 { margin: 1.4rem 0 .5rem; font-size: 1.3rem; }
+    .chapter p { margin: .8rem 0; }
+    .chapter ul, .chapter ol { padding-left: 1.6rem; }
+    .chapter li { margin: .3rem 0; }
+    .chapter blockquote {
+      margin: 1.2rem 0;
+      padding: .2rem 1rem;
+      border-left: .25rem solid var(--accent);
+      background: #f8f3e9;
+      color: #34494b;
+    }
+    .chapter pre {
+      overflow-x: auto;
+      margin: 1.1rem 0;
+      padding: 1rem 1.15rem;
+      border-radius: .3125rem;
+      background: var(--code);
+      color: var(--code-ink);
+      font: 1.05rem/1.6 var(--mono);
+      tab-size: 4;
+    }
+    .chapter code { font-family: var(--mono); font-size: .9em; }
+    .chapter :not(pre) > code {
+      padding: .12em .32em;
+      border-radius: .1875rem;
+      background: #e9eee7;
+      color: #243d3e;
+    }
+    .chapter table { display: block; width: 100%; overflow-x: auto; border-collapse: collapse; }
+    .chapter th, .chapter td { padding: .55rem .7rem; border: .0625rem solid var(--line); text-align: left; vertical-align: top; }
+    .chapter th { background: #eaf0e9; }
+    .chapter hr { margin: 2rem 0; border: 0; border-top: .0625rem solid var(--line); }
+    @media (max-width: 1025px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; height: auto; max-height: 45vh; border-right: 0; border-bottom: .0625rem solid var(--line); }
+      main { padding: 1rem; }
+      .book-header { padding: 1.5rem; }
+      .chapter { padding: 1.2rem; }
+    }
+    @media print {
+      .layout { display: block; }
+      .sidebar { display: none; }
+      main { padding: 0; }
+      .book-header, .chapter { width: 100%; box-shadow: none; break-inside: auto; }
+      .chapter { border: 0; padding: 0; }
+      .chapter pre { white-space: pre-wrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar" aria-label="Book navigation">
+      <p class="book-label">Workshop workbook</p>
+      <h1>Mini Coding Agent</h1>
+      <p class="toc-heading">Contents</p>
+      <nav aria-label="Table of contents"><ol class="toc"><li class="chapter-item"><a class="chapter-title" href="#chapter-01">How mini-coding-agent works</a><ul><li><a href="#chapter-01-the-four-tools-the-agent-can-use">The four tools the agent can use</a></li><li><a href="#chapter-01-how-the-loop-gets-the-model-to-call-tools">How the loop gets the model to call tools</a></li><li><a href="#chapter-01-the-message-history-that-drives-it">The message history that drives it</a></li><li><a href="#chapter-01-configuration-the-api-call">Configuration &amp; the API call</a></li><li><a href="#chapter-01-console-ui-and-configuration">Console UI and configuration</a><ul><li><a href="#chapter-01-how-ui-py-uses-rich">How ui.py uses Rich</a></li><li><a href="#chapter-01-what-ui-json-controls">What ui.json controls</a></li></ul></li><li><a href="#chapter-01-running-it">Running it</a></li><li><a href="#chapter-01-usage-metrics-and-tests">Usage metrics and tests</a></li><li><a href="#chapter-01-what-a-fuller-agent-adds-the-demo-s-roadmap">What a fuller agent adds (the demo&#x27;s roadmap)</a></li></ul></li><li class="chapter-item"><a class="chapter-title" href="#chapter-02">Chapter 02 - Lifecycle hooks and an observable agent loop</a><ul><li><a href="#chapter-02-why-hooks-belong-at-lifecycle-boundaries">Why hooks belong at lifecycle boundaries</a></li><li><a href="#chapter-02-the-hook-contract-in-src-lifecycle-py">The hook contract in src/lifecycle.py</a></li><li><a href="#chapter-02-calling-hooks-from-the-agent-loop">Calling hooks from the agent loop</a><ul><li><a href="#chapter-02-hook-failures-are-contained">Hook failures are contained</a></li></ul></li><li><a href="#chapter-02-write-a-hook">Write a hook</a></li><li><a href="#chapter-02-the-lifecycle-trace-belongs-to-the-ui">The lifecycle trace belongs to the UI</a></li><li><a href="#chapter-02-hooks-around-a-constrained-workspace">Hooks around a constrained workspace</a><ul><li><a href="#chapter-02-the-important-limit">The important limit</a></li><li><a href="#chapter-02-sandbox-audit-hooks-and-ui-status">Sandbox audit hooks and UI status</a></li><li><a href="#chapter-02-read-access-and-write-access-are-different">Read access and write access are different</a></li></ul></li><li><a href="#chapter-02-tests-for-extension-points">Tests for extension points</a></li><li><a href="#chapter-02-chapter-02-checklist">Chapter 02 checklist</a></li></ul></li></ol></nav>
+    </aside>
+    <main>
+      <header class="book-header">
+        <h2>Mini Coding Agent</h2>
+        <p>Complete workshop book</p>
+      </header>
+      <article class="chapter" id="chapter-01" aria-labelledby="chapter-01-title"><h1 id="chapter-01-title">How mini-coding-agent works</h1>
+<p><code>src/agent.py</code> is a small, working <strong>agentic coding loop</strong>: a model chooses
+tools, the Python host executes them, and their results go back to the model.
+It demonstrates the core pattern used by coding agents without an agent
+framework or LLM SDK. The agent uses <code>rich</code> for its console interface; HTTP,
+JSON, filesystem, and process operations use the Python standard library.</p>
+<p>The app lives in <code>src/</code>: <code>agent.py</code> owns the OpenRouter request, tool functions,
+agent loop, and usage tracking; <code>ui.py</code> renders the console and footer; <code>ui.json</code>
+configures its labels and Rich styles; <code>tests/</code> contains the <code>unittest</code> suite;
+and <code>work/</code> is the intended working directory for generated files and commands.
+<code>demo-prompt.md</code> contains a sample request. The root <code>main.py</code> is only a greeting
+stub; launch the actual agent with <code>src/agent.py</code>.</p>
+<p>The whole point is to show <em>what an agent actually is</em>: not one magic LLM call,
+but a <strong>loop</strong> in which the model repeatedly decides what to do, the host executes
+it, and the result is handed back — until the model stops asking for tools.</p>
+<pre><code>request ─▶ [ model response ] ─▶ tool call ─▶ host runs it ─▶ result ─▶ [ model response ]
+                                      ▲                                           │
+                                      └──────────── loop (max 8 steps) ──────────┘
+                                                 ...no more tools ▶ done
+</code></pre>
+<hr>
+<h2 id="chapter-01-the-four-tools-the-agent-can-use">The four tools the agent can use</h2>
+<p>An agent can only do whatever its host exposes. Here, exactly four functions
+are exposed. <code>work/</code> is the intended working directory, but not a security sandbox:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Signature</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>write_file</code></td>
+<td><code>(path, content)</code></td>
+<td>Write text to a file path</td>
+</tr>
+<tr>
+<td><code>edit_file</code></td>
+<td><code>(path, old, new)</code></td>
+<td>Replace the first occurrence of <code>old</code> in a file</td>
+</tr>
+<tr>
+<td><code>read_file</code></td>
+<td><code>(path)</code></td>
+<td>Return a file's text contents</td>
+</tr>
+<tr>
+<td><code>run</code></td>
+<td><code>(command)</code></td>
+<td>Run a shell command with <code>work/</code> as its current directory</td>
+</tr>
+</tbody>
+</table>
+<p>The agent anchors <code>WORKDIR</code> to the repository root, so it can create
+<code>work/hello.py</code> even when launched from <code>src/</code>, run <code>python hello.py</code>, inspect
+the output, edit the script, and run it again — a complete fix cycle. <code>run()</code>
+uses <code>work/</code> as the command's current directory and returns stdout, or stderr if
+stdout is empty; it does not report the process exit code separately.</p>
+<blockquote>
+<p><strong>Security note:</strong> <code>work/</code> is only the default working directory, not a
+sandbox. File tools do not check that paths stay inside it, and <code>run()</code> uses
+<code>shell=True</code>, so commands can access files and run programs outside it. Use
+only with trusted prompts in a controlled demo; do not expose this app to
+untrusted users or treat it as a secure coding agent.</p>
+</blockquote>
+<hr>
+<h2 id="chapter-01-how-the-loop-gets-the-model-to-call-tools">How the loop gets the model to call tools</h2>
+<p>Modern chat models understand <strong>tools</strong> as part of their training. You advertise
+the available functions as a JSON schema in the API request, exactly like this:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;function&quot;,
+  &quot;function&quot;: {
+    &quot;name&quot;: &quot;write_file&quot;,
+    &quot;description&quot;: &quot;Create or overwrite a file in the work dir.&quot;,
+    &quot;parameters&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;properties&quot;: { &quot;path&quot;: {&quot;type&quot;: &quot;string&quot;}, &quot;content&quot;: {&quot;type&quot;: &quot;string&quot;} },
+      &quot;required&quot;: [&quot;path&quot;, &quot;content&quot;]
+    }
+  }
+}
+</code></pre>
+<p>When the model requests a tool, its reply contains a <code>tool_calls</code> array
+describing <em>which</em> function and <em>what arguments</em> — it does <strong>not</strong> execute
+anything itself. That's the crucial separation:</p>
+<ol>
+<li>The model <em>proposes</em>: &quot;call <code>write_file</code> with these args.&quot;</li>
+<li>The <strong>host</strong> executes the actual filesystem/system call.</li>
+<li>The host appends a <code>role: &quot;tool&quot;</code> message containing the result.</li>
+<li>The model sees the result and returns another response, either requesting
+more tools or ending the loop.</li>
+</ol>
+<p>The model does not execute Python functions itself, but the host executes its
+requested operations with the permissions of the user running the app. This
+separation is how tool calling works; it is not a security boundary.</p>
+<hr>
+<h2 id="chapter-01-the-message-history-that-drives-it">The message history that drives it</h2>
+<p>The API is stateless — each request is a batch of messages. <code>agent.py</code> keeps
+the running conversation in a plain list and re-sends it every step:</p>
+<pre><code>system   You are a minimal coding agent...
+user     write a hello world script and run it
+assistant  &lt;text&gt;      (rendered with the thought label configured in ui.json)
+assistant  &lt;tool_calls: write_file(path, content)&gt;
+tool      Created hello.py                  ← result, matched by tool_call_id
+assistant  &lt;tool_calls: run(python hello.py)&gt;
+tool      Hello, world!                     ← output of the script
+assistant  &lt;final answer, no tool_calls&gt;    → loop ends
+</code></pre>
+<p>Two details worth noticing:</p>
+<ul>
+<li><strong>Tool results carry an <code>id</code>.</strong> Each assistant <code>tool_call</code> has an <code>id</code>; the
+host echoes it on the corresponding <code>tool</code> message so the model can pair them.</li>
+<li><strong>The loop ends when the model returns no <code>tool_calls</code>.</strong> The app also stops
+after at most eight model-response iterations (<code>max_steps=8</code>), even if the
+model keeps requesting tools.</li>
+</ul>
+<p>Unlike the HTML &quot;memory&quot; demo (which stores chat text in <code>localStorage</code>), here
+the <em>entire</em> tool conversation is the working memory — everything is re-sent
+each iteration, which is why the agent can remember what it wrote earlier.</p>
+<hr>
+<h2 id="chapter-01-configuration-the-api-call">Configuration &amp; the API call</h2>
+<ul>
+<li><code>agent.py</code> loads the project-root <code>.env</code> with <code>python-dotenv</code> and leaves
+existing process environment variables untouched. The file supplies
+<code>OPENROUTER_API_KEY</code> and optionally <code>MODEL</code>; the model falls back to
+<code>deepseek/deepseek-v4.1-flash</code> when unset.</li>
+<li><code>agent.py</code> sends an HTTP POST to
+<code>https://openrouter.ai/api/v1/chat/completions</code> using <code>urllib.request</code>. The
+JSON request contains the selected model, message history, and tool schemas.
+The system prompt asks the model to work step by step, run and fix its code,
+and finish with a short plain-text summary.</li>
+</ul>
+<hr>
+<h2 id="chapter-01-console-ui-and-configuration">Console UI and configuration</h2>
+<h3 id="chapter-01-how-ui-py-uses-rich">How <code>ui.py</code> uses Rich</h3>
+<p><code>ui.py</code> defines a <code>UI</code> class around Rich's <code>Console</code>. Rich handles terminal
+layout and styling so the app can show structured output rather than plain,
+unformatted log lines. The UI can use the default console or accept a <code>Console</code>
+and config path when constructed. By default, it reads <code>ui.json</code> from beside
+<code>ui.py</code> as UTF-8 JSON, then uses its <code>labels</code> and <code>styles</code> dictionaries.</p>
+<p>Each <code>UI</code> method renders one part of the interaction:</p>
+<ul>
+<li><code>prompt()</code> builds a Rich <code>Text</code> prompt from the model name, request label,
+and indicator, then uses <code>Console.input()</code> to read the user's request.</li>
+<li><code>show_start()</code> draws a <code>Console.rule()</code> header and puts the request in a
+<code>Panel</code>; <code>show_thought()</code> displays the model's text in a step-labelled panel.</li>
+<li><code>show_tool()</code> builds a <code>Text</code> line with the tool name and JSON arguments.</li>
+<li><code>show_code()</code> uses Rich <code>Syntax</code> to display file content with Python
+highlighting and the configured theme.</li>
+<li><code>show_result()</code> puts tool output in a result <code>Panel</code>; <code>show_done()</code> and
+<code>show_max_steps()</code> render the completion and step-limit messages, then call
+<code>footer()</code> to show token and cost usage.</li>
+<li><code>footer()</code> shows the latest prompt size, totals for prompt and completion
+tokens, and cumulative cost. It shows context-window percentage only when a
+context limit is available; otherwise it labels the limit as unavailable.</li>
+</ul>
+<p>Rich components take styles separately from their text: for example, a
+<code>Panel</code> has a title style and border style, while a <code>Text</code> object can style
+individual spans. This is how the interface highlights the model prompt,
+tools, code and results without mixing terminal escape codes into agent logic.</p>
+<h3 id="chapter-01-what-ui-json-controls">What <code>ui.json</code> controls</h3>
+<p><code>ui.json</code> is the UI's visual and wording configuration, not the agent's
+behavior. Its <code>labels</code> values supply the text shown by <code>ui.py</code>; <code>{model}</code> is
+substituted into the model prompt label and <code>{step}</code> into the thought-panel
+title. Its <code>styles</code> values are Rich style strings: for example, <code>bold cyan</code>
+sets bold cyan text, <code>yellow</code> sets a panel border color, and <code>monokai</code> selects
+the syntax-highlighting theme used by <code>Syntax</code>.</p>
+<p>The keys are looked up directly by <code>ui.py</code>, so keep the existing key names and
+any format placeholders when changing the JSON. You can edit values to rename
+the prompt, header, tool/result labels, and status messages, or change colors
+and highlighting without changing the agent loop. Invalid JSON, missing keys,
+or an unsupported Rich style can prevent the UI from starting.</p>
+<h2 id="chapter-01-running-it">Running it</h2>
+<pre><code class="language-sh">cd src
+uv run agent.py &quot;write a hello world script and run it&quot;
+# or: pass nothing for an interactive prompt
+# or override: MODEL=openai/gpt-4o-mini OPENROUTER_API_KEY=sk-or-... uv run agent.py &quot;...&quot;
+</code></pre>
+<p>The root <code>pyproject.toml</code> declares Python 3.11+ and the project dependencies;
+<code>uv run</code> installs them into the project environment when needed. The app can be
+launched from <code>src/</code> as shown above, but <code>WORKDIR</code> is anchored to the repository
+root, so generated files and shell commands always use root-level <code>work/</code>.
+If no request is supplied on the command line, <code>ui.py</code> prompts for one and
+displays the selected model name.</p>
+<p>When run without a command-line request, the prompt starts with the active model
+name, for example: <code>[deepseek/deepseek-v4.1-flash] Request ›</code>. It uses the same
+model resolution as the API call: process environment, project-root <code>.env</code>,
+then the built-in fallback.</p>
+<p>Watch the terminal: you'll see the model's text, each <code>tool write_file({...})</code>
+call, the result panels, and the final response. The log makes each loop step
+visible as the app runs.</p>
+<h2 id="chapter-01-usage-metrics-and-tests">Usage metrics and tests</h2>
+<p>Each chat-completions response may include a <code>usage</code> object. <code>agent.py</code> reads
+<code>prompt_tokens</code>, <code>completion_tokens</code>, and <code>cost</code> from that object: prompt and
+completion tokens and cost are accumulated across model calls, while the latest
+prompt-token count is used as the current context estimate. If a response omits
+usage fields, the app keeps the last available values. The context limit is not
+assumed; the footer shows a percentage only if the response provides
+<code>context_limit</code>.</p>
+<p>The tests live in the root <code>tests/</code> directory and use Python's standard-library
+<code>unittest</code>.
+They capture Rich output and replace the network call with a fixed response, so
+the suite does not make an OpenRouter request or require an API key. From the
+repository root, run them with the project environment:</p>
+<pre><code class="language-sh">uv run python -m unittest discover -s tests -v
+</code></pre>
+<hr>
+<h2 id="chapter-01-what-a-fuller-agent-adds-the-demo-s-roadmap">What a fuller agent adds (the demo's roadmap)</h2>
+<p>This is deliberately minimal. Production coding agents bolt on:</p>
+<ul>
+<li><strong>More tools</strong> (read directories, run tests, git, web search) and richer tool
+result handling.</li>
+<li><strong>A real sandbox</strong> — execute untrusted code in a container/VM, not <code>subprocess</code>.</li>
+<li><strong>Context trimming</strong> — the full history is re-sent each step, so long runs
+blow up token costs; real agents summarize or drop old turns.</li>
+<li><strong>A planner / multi-agent split</strong> — separate the &quot;what to do&quot; reasoning from
+the &quot;which files to touch&quot; execution.</li>
+<li><strong>Human-in-the-loop</strong> — pause and ask before destructive commands.</li>
+</ul>
+<p>The loop shape here — decide, execute, feed back, repeat — is the thing they
+all share.</p>
+</article>
+<article class="chapter" id="chapter-02" aria-labelledby="chapter-02-title"><h1 id="chapter-02-title">Chapter 02 - Lifecycle hooks and an observable agent loop</h1>
+<p>Chapter 01 built a small coding agent: a model requests tools, the Python host
+runs them, and tool results return to the model. The loop works, but it is hard
+to extend cleanly when every new feature must be inserted directly into the
+middle of <code>agent_loop()</code>.</p>
+<p>This chapter adds <strong>lifecycle hooks</strong>. A hook is a named callback that runs at a
+defined point in the host-controlled agent lifecycle. Hooks are useful for
+observing an agent, recording metrics, adding audit events, playing a sound, or
+connecting later workshop exercises without rewriting the loop.</p>
+<p>The goal is not to give callback code control over the agent. The host still
+owns model requests, tool execution, error handling, and console rendering.
+Hooks receive information about the transition and can react to it.</p>
+<p>After this chapter the new or changed files are:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change from Chapter 01</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/lifecycle.py</code></td>
+<td>New <code>Hooks</code> base class that documents every callback point.</td>
+</tr>
+<tr>
+<td><code>src/agent.py</code></td>
+<td>Creates a context for each turn and calls hooks around the model/tool loop.</td>
+</tr>
+<tr>
+<td><code>src/ui.py</code></td>
+<td>Adds Rich rendering methods for lifecycle trace lines and hook failures.</td>
+</tr>
+<tr>
+<td><code>src/ui.json</code></td>
+<td>Adds the wording, ASCII icons, and styles for lifecycle events.</td>
+</tr>
+<tr>
+<td><code>tests/test_agent_lifecycle.py</code></td>
+<td>Verifies callback order, context, UI output, and hook-failure isolation.</td>
+</tr>
+<tr>
+<td><code>src/sandbox.py</code></td>
+<td>Adds separate read/write path rules, JSONL event logging, and a constrained command runner.</td>
+</tr>
+<tr>
+<td><code>tests/test_sandbox.py</code></td>
+<td>Verifies allowed roots, external reads, event logs, command limits, and agent integration.</td>
+</tr>
+</tbody>
+</table>
+<p>Run the agent as before:</p>
+<pre><code class="language-powershell">cd src
+uv run agent.py &quot;write a hello world script and run it&quot;
+</code></pre>
+<p>The terminal now includes lines similar to these between the request panel and
+the model/tool output:</p>
+<pre><code class="language-text">lifecycle | [in] input received - 38 characters
+lifecycle | [*] agent loop started - waiting for a model response
+lifecycle | [AI] model request - step 1 - 2 messages
+lifecycle | [AI] model response - step 1 - 1 tool call(s)
+lifecycle | [&gt;] tool starting - write_file - 2 argument(s)
+lifecycle | [ok] tool finished - write_file - complete
+sandbox | [box] constrained local runner - writes: work/ and logs/; no host shell
+lifecycle | [AI] model request - step 1 - 2 messages
+sandbox | [lock] path rejected - write/edit path must stay in work or logs
+</code></pre>
+<p>The markers are deliberately ASCII rather than emoji. They remain readable in
+legacy Windows terminals that cannot encode every Unicode symbol. Rich supplies
+the colour; <code>ui.json</code> supplies the text and colour choices.</p>
+<hr>
+<h2 id="chapter-02-why-hooks-belong-at-lifecycle-boundaries">Why hooks belong at lifecycle boundaries</h2>
+<p>Without hooks, an extra feature is tempted to reach into unrelated places in
+the loop:</p>
+<pre><code class="language-python"># This quickly makes the loop difficult to read and test.
+save_audit_record(prompt)
+reply = chat(messages)
+save_model_response(reply)
+result = TOOLS[name](**args)
+save_tool_result(result)
+</code></pre>
+<p>The loop should instead announce the transitions it already performs:</p>
+<pre><code class="language-text">request
+  -&gt; before_input
+  -&gt; before_loop
+  -&gt; before_brain_request
+  -&gt; after_brain_response
+  -&gt; before_tool_execute / after_tool_execute (zero or more times)
+  -&gt; after_loop
+  -&gt; after_input
+</code></pre>
+<p>This makes three responsibilities clear:</p>
+<table>
+<thead>
+<tr>
+<th>Responsibility</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deciding when an event happened and executing tools</td>
+<td><code>agent.py</code></td>
+</tr>
+<tr>
+<td>Reacting to an event</td>
+<td>A <code>Hooks</code> subclass</td>
+</tr>
+<tr>
+<td>Choosing how an event looks in the terminal</td>
+<td><code>UI</code> and <code>ui.json</code></td>
+</tr>
+</tbody>
+</table>
+<p>For example, a hook can count completed tools, but it does not replace the
+tool result that is sent back to the model. That keeps the model/tool protocol
+in one trustworthy place: the host loop.</p>
+<hr>
+<h2 id="chapter-02-the-hook-contract-in-src-lifecycle-py">The hook contract in <code>src/lifecycle.py</code></h2>
+<p><code>lifecycle.py</code> contains a small base class. Every method is a no-op, so a
+subclass only overrides the callbacks it needs:</p>
+<pre><code class="language-python">class Hooks:
+    def before_tool_execute(self, agent, tool_name, arguments):
+        &quot;&quot;&quot;Called before a requested tool is executed.&quot;&quot;&quot;
+
+    def after_tool_execute(self, agent, tool_name, result):
+        &quot;&quot;&quot;Called after a requested tool finishes, including failures.&quot;&quot;&quot;
+</code></pre>
+<p>The <code>agent</code> parameter is an <code>AgentContext</code> created for one call to
+<code>agent_loop()</code>. It exposes state that is useful to an observer:</p>
+<table>
+<thead>
+<tr>
+<th>Context attribute</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request</code></td>
+<td>The original user request text.</td>
+</tr>
+<tr>
+<td><code>messages</code></td>
+<td>The live message list that will be sent to the model.</td>
+</tr>
+<tr>
+<td><code>metrics</code></td>
+<td>The token and cost dictionary used by the footer.</td>
+</tr>
+<tr>
+<td><code>ui</code></td>
+<td>The active UI instance. A hook normally should not render directly.</td>
+</tr>
+<tr>
+<td><code>workspace</code></td>
+<td>The file-path policy and JSONL lifecycle event log.</td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td>The current one-based model-response step.</td>
+</tr>
+</tbody>
+</table>
+<p>The current lifecycle callbacks are:</p>
+<table>
+<thead>
+<tr>
+<th>Callback</th>
+<th>Called when</th>
+<th>Extra arguments</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>on_session_start</code></td>
+<td>The command-line session starts.</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>on_session_stop</code></td>
+<td>The command-line session stops.</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>before_input</code></td>
+<td>A request starts processing.</td>
+<td><code>user_input</code></td>
+</tr>
+<tr>
+<td><code>after_input</code></td>
+<td>A request has finished processing.</td>
+<td><code>user_input</code>, <code>output</code></td>
+</tr>
+<tr>
+<td><code>before_loop</code></td>
+<td>The model/tool loop begins.</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>after_loop</code></td>
+<td>The model/tool loop ends.</td>
+<td><code>output</code></td>
+</tr>
+<tr>
+<td><code>before_brain_request</code></td>
+<td>Just before <code>chat(messages)</code>.</td>
+<td><code>conversation</code></td>
+</tr>
+<tr>
+<td><code>after_brain_response</code></td>
+<td>Just after a model reply is read.</td>
+<td><code>thought</code></td>
+</tr>
+<tr>
+<td><code>before_tool_execute</code></td>
+<td>Just before a requested tool runs.</td>
+<td><code>tool_name</code>, <code>arguments</code></td>
+</tr>
+<tr>
+<td><code>after_tool_execute</code></td>
+<td>Just after that tool returns or fails.</td>
+<td><code>tool_name</code>, <code>result</code></td>
+</tr>
+<tr>
+<td><code>on_error</code></td>
+<td>The host catches a tool or tool-argument error.</td>
+<td><code>error</code>, <code>phase</code></td>
+</tr>
+</tbody>
+</table>
+<p>The base class also reserves <code>before_compact</code>, <code>after_compact</code>,
+<code>on_mode_change</code>, and <code>on_brain_switch</code>. They are not fired by the Chapter 02
+agent because it does not compact context, support modes, or switch providers.
+Keeping their names in one documented contract gives later chapters stable
+places to add those features.</p>
+<hr>
+<h2 id="chapter-02-calling-hooks-from-the-agent-loop">Calling hooks from the agent loop</h2>
+<p><code>agent.py</code> imports the contract and creates a default instance:</p>
+<pre><code class="language-python">from sandbox import SandboxAuditHooks
+
+# The default hook records sandbox session, tool, and caught-error events.
+hooks = SandboxAuditHooks()
+</code></pre>
+<p>The <code>agent_loop()</code> function also accepts <code>lifecycle_hooks</code>. This makes tests and
+other Python callers independent of the module-level default:</p>
+<pre><code class="language-python">def agent_loop(
+    prompt: str,
+    max_steps: int = 8,
+    lifecycle_hooks: Hooks | None = None,
+) -&gt; None:
+    active_hooks = lifecycle_hooks if lifecycle_hooks is not None else hooks
+</code></pre>
+<p>At the start of a turn, the agent builds its messages and context, then reports
+the first two transitions:</p>
+<pre><code class="language-python">context = AgentContext(prompt, messages, metrics, ui, WORKSPACE)
+_call_hook(active_hooks, &quot;before_input&quot;, context, prompt, detail=&quot;...&quot;)
+_call_hook(active_hooks, &quot;before_loop&quot;, context, detail=&quot;...&quot;)
+</code></pre>
+<p>Before each request, the loop gives the hook the same <code>messages</code> list it is
+about to pass to <code>chat()</code>. After the reply, it gives the hook the provider
+message dictionary. The hook therefore sees the actual conversation state and
+tool calls, not a copied or reconstructed version.</p>
+<p>For each requested tool, the sequence is:</p>
+<pre><code class="language-python">_call_hook(active_hooks, &quot;before_tool_execute&quot;, context, name, args)
+try:
+    result = TOOLS[name](**args)
+except Exception as error:
+    _report_error(active_hooks, context, error, &quot;tool_execute&quot;)
+    result = f&quot;ERROR: {error}&quot;
+_call_hook(active_hooks, &quot;after_tool_execute&quot;, context, name, result)
+</code></pre>
+<p><code>after_tool_execute</code> runs whether the tool succeeded or failed. That is useful
+for monitoring because an audit record can show both the requested action and
+its final outcome.</p>
+<h3 id="chapter-02-hook-failures-are-contained">Hook failures are contained</h3>
+<p>Extensions should not make the coding agent unusable. <code>_call_hook()</code> catches an
+exception raised by a callback and asks the UI to show a lifecycle-hook error
+panel. It then continues the host loop. The <code>on_error</code> callback receives the
+same protection so an error-reporting hook cannot recurse forever if it fails.</p>
+<p>This containment applies to callback failures. It does not hide errors from the
+actual tool: tool failures are still turned into <code>ERROR: ...</code> results and sent
+back to the model, as in Chapter 01.</p>
+<hr>
+<h2 id="chapter-02-write-a-hook">Write a hook</h2>
+<p>Here is a small hook that reports the final number of successful tools. It
+stores state on the hook instance, which is appropriate when one instance is
+used for one command-line run:</p>
+<pre><code class="language-python">from lifecycle import Hooks
+
+
+class ToolCounter(Hooks):
+    &quot;&quot;&quot;Count tools that completed without a host error.&quot;&quot;&quot;
+
+    def __init__(self):
+        self.successful_tools = 0
+
+    def after_tool_execute(self, agent, tool_name, result):
+        # The agent marks failed tool calls with this string before sending
+        # their result back to the model.
+        if not result.startswith(&quot;ERROR:&quot;):
+            self.successful_tools += 1
+
+    def after_loop(self, agent, output):
+        # Ask the UI to render the extension's message. The hook does not
+        # construct terminal colour codes or call print() itself.
+        agent.ui.show_lifecycle_event(
+            &quot;tool_counter&quot;,
+            f&quot;{self.successful_tools} successful tool(s)&quot;,
+        )
+</code></pre>
+<p>Pass it directly when using the agent from Python:</p>
+<pre><code class="language-python">from agent import agent_loop
+
+agent_loop(&quot;write a hello world script and run it&quot;, lifecycle_hooks=ToolCounter())
+</code></pre>
+<p>In a larger application, a hook might write structured JSON to an audit file,
+measure elapsed time around <code>before_brain_request</code> and <code>after_brain_response</code>,
+or send a metric to an observability service. Keep irreversible policy checks
+in the host close to the operation they protect. A hook is a useful place to
+observe a proposed tool call; it is not a substitute for enforcing a security
+boundary in <code>TOOLS</code> or <code>run()</code>.</p>
+<hr>
+<h2 id="chapter-02-the-lifecycle-trace-belongs-to-the-ui">The lifecycle trace belongs to the UI</h2>
+<p>The agent tells the UI that an event occurred, for example:</p>
+<pre><code class="language-python">context.ui.show_lifecycle_event(
+    &quot;before_tool_execute&quot;,
+    &quot;write_file - 2 argument(s)&quot;,
+)
+</code></pre>
+<p>It does not assemble colour codes or terminal strings. <code>UI.show_lifecycle_event</code>
+looks up the label and style for the event in <code>ui.json</code>, builds a Rich <code>Text</code>
+object, and prints it. The trace details are limited to 100 characters so a
+long command, error message, or model response does not overwhelm the console.</p>
+<p><code>ui.json</code> now contains two maps under both <code>labels</code> and <code>styles</code>:</p>
+<pre><code class="language-json">{
+  &quot;labels&quot;: {
+    &quot;lifecycle_events&quot;: {
+      &quot;before_brain_request&quot;: &quot;[AI] model request&quot;,
+      &quot;before_tool_execute&quot;: &quot;[&gt;] tool starting&quot;,
+      &quot;on_error&quot;: &quot;[!] host error&quot;
+    }
+  },
+  &quot;styles&quot;: {
+    &quot;lifecycle_events&quot;: {
+      &quot;before_brain_request&quot;: &quot;bold magenta&quot;,
+      &quot;before_tool_execute&quot;: &quot;bold yellow&quot;,
+      &quot;on_error&quot;: &quot;bold red&quot;
+    }
+  }
+}
+</code></pre>
+<p>Change the labels and Rich styles to fit your workshop theme without editing
+the agent loop. If a future hook has an event name not in the maps, the UI falls
+back to the event name with underscores replaced by spaces.</p>
+<p><code>UI.show_hook_error()</code> follows the same separation. <code>_call_hook()</code> only says
+which callback failed and supplies the exception; the UI selects the panel
+label, title style, and border style from <code>ui.json</code>.</p>
+<hr>
+<h2 id="chapter-02-hooks-around-a-constrained-workspace">Hooks around a constrained workspace</h2>
+<p>The original Chapter 01 tools wrote under <code>work/</code> and passed model text to a
+host shell. Chapter 02 now routes every tool through <code>src/sandbox.py</code>:</p>
+<pre><code class="language-text">model tool request
+    -&gt; before_tool_execute hook records the requested action
+    -&gt; SandboxWorkspace or ConstrainedLocalRunner enforces host policy
+    -&gt; after_tool_execute hook records the outcome
+</code></pre>
+<p><code>SandboxWorkspace</code> is the only path used by the file tools. <code>write_file</code> and
+<code>edit_file</code> resolve targets only beneath repository-root <code>work/</code> or <code>logs/</code>.
+They reject absolute, drive-qualified, and traversal paths that fall outside
+those roots. A bare relative path such as <code>hello.py</code> goes to <code>work/</code>; a path
+starting <code>logs/</code> goes to the log root. An absolute write path is allowed only
+when it resolves inside one of those two roots. <code>read_file</code> remains more
+permissive: it can read any readable absolute path, as well as work-relative
+paths. The tool registry has no delete operation.</p>
+<p><code>ConstrainedLocalRunner</code> is the current implementation of the small
+<code>SandboxRunner</code> interface. It does the following before starting a process:</p>
+<ul>
+<li>rejects shell operators such as <code>|</code>, <code>&amp;</code>, <code>;</code>, <code>&gt;</code>, and <code>&lt;</code>;</li>
+<li>parses an argument list and starts it with <code>shell=False</code>;</li>
+<li>permits only <code>python</code> and <code>pytest</code> command variants;</li>
+<li>uses <code>work/</code> as the current directory;</li>
+<li>applies a 20-second timeout and truncates captured output.</li>
+</ul>
+<p>The command result includes its exit code and bounded standard output/error, so
+the model can still inspect and fix code it generated.</p>
+<h3 id="chapter-02-the-important-limit">The important limit</h3>
+<p>This is a <strong>constrained local runner</strong>, not a strong operating-system sandbox.
+The child process still runs under the current user's account and is not
+network-isolated. A Python process can do much more than the command parser
+can express. Use trusted workshop prompts only. A future container or VM
+implementation can replace <code>ConstrainedLocalRunner</code> through the same
+<code>SandboxRunner.run()</code> interface, then enforce a non-root user, no network,
+resource limits, and a dedicated filesystem mount.</p>
+<h3 id="chapter-02-sandbox-audit-hooks-and-ui-status">Sandbox audit hooks and UI status</h3>
+<p><code>SandboxAuditHooks</code> is the default hook implementation. It appends event
+records to <code>agent.workspace.events</code> rather than changing the conversation or
+tool result. The host also writes every lifecycle transition as a JSON object
+in a generated <code>.jsonl</code> file under <code>logs/</code>. The records include the event name,
+short detail, current model step, monotonic time, and UTC timestamp. They cover
+session start/stop, requested and completed tools, caught host errors, and
+general loop events. <code>EventLog</code> appends each record as one line, making the
+file easy to inspect or process with other tools.</p>
+<p>The agent still owns enforcement. When it catches <code>SandboxPathError</code> or
+<code>SandboxCommandError</code>, it asks the UI to show a configured status line before
+returning an <code>ERROR: ...</code> result to the model:</p>
+<pre><code class="language-text">sandbox | [lock] path rejected - write/edit path must stay in work or logs
+lifecycle | [!] host error - tool_execute: write/edit path must stay in work or logs
+</code></pre>
+<p><code>UI.show_sandbox_status()</code> reads <code>sandbox_events</code> labels and styles from
+<code>ui.json</code>, so sandbox code does not print Rich formatting directly. The labels
+use portable ASCII markers such as <code>[box]</code>, <code>[lock]</code>, <code>[wait]</code>, and <code>[ok]</code>.</p>
+<h3 id="chapter-02-read-access-and-write-access-are-different">Read access and write access are different</h3>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Allowed location</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>write_file</code></td>
+<td><code>work/</code> or <code>logs/</code> only</td>
+</tr>
+<tr>
+<td><code>edit_file</code></td>
+<td><code>work/</code> or <code>logs/</code> only</td>
+</tr>
+<tr>
+<td><code>read_file</code></td>
+<td>Any readable absolute path; relative paths resolve from <code>work/</code></td>
+</tr>
+<tr>
+<td>Delete</td>
+<td>No delete tool is registered</td>
+</tr>
+</tbody>
+</table>
+<p>The resolver checks fully resolved paths, so <code>..</code> traversal and symlinks that
+resolve outside both approved roots are rejected before a write or edit.</p>
+<p>This boundary applies to the agent's registered file tools. The local runner
+still starts processes as the current OS user. A Python script or pytest test
+can open or delete files directly, outside the host file-tool checks. Enforcing
+the same <code>work/</code> and <code>logs/</code> boundary against executed code requires a
+container or VM with filesystem permissions that restrict the child process.</p>
+<hr>
+<h2 id="chapter-02-tests-for-extension-points">Tests for extension points</h2>
+<p><code>tests/test_agent_lifecycle.py</code> uses a <code>RecordingHooks</code> subclass and a mocked
+model reply. It verifies that the callback sequence is ordered correctly:</p>
+<pre><code class="language-text">before_input
+before_brain_request
+after_brain_response
+after_loop
+after_input
+</code></pre>
+<p>It also checks that the callback receives the request and current step, and
+that the captured Rich output includes lifecycle labels such as <code>model request</code>
+and <code>agent loop finished</code>.</p>
+<p>The second test uses a hook whose <code>before_loop()</code> deliberately raises an error.
+The loop still receives the mocked final model response, proving that optional
+extension code cannot stop the core agent merely by failing.</p>
+<p><code>tests/test_sandbox.py</code> adds coverage for the host file-tool boundary:</p>
+<ul>
+<li>safe nested workspace files can be written and read;</li>
+<li>writes and edits outside <code>work/</code> and <code>logs/</code> are rejected, while external
+absolute reads remain allowed;</li>
+<li>the agent loop rejects attempts to write/edit <code>README.md</code>, and the tool map
+has no delete operation;</li>
+<li>JSONL lifecycle events are written under <code>logs/</code>;</li>
+<li>shell operators and commands outside the allowlist never start a process;</li>
+<li>timeouts become model-readable errors and output is bounded;</li>
+<li>audit hooks record tool requests, outcomes, and caught errors;</li>
+<li>an unsafe path requested through the real agent loop is shown in the UI,
+returned to the model as an error, and followed by the final response.</li>
+</ul>
+<p>Run the full suite from the repository root:</p>
+<pre><code class="language-powershell">uv run python -m unittest discover -s tests -v
+</code></pre>
+<hr>
+<h2 id="chapter-02-chapter-02-checklist">Chapter 02 checklist</h2>
+<ul>
+<li>[ ] <code>src/lifecycle.py</code> defines the documented <code>Hooks</code> extension contract.</li>
+<li>[ ] <code>agent.py</code> sends lifecycle notifications around model and tool work.</li>
+<li>[ ] Each turn has an <code>AgentContext</code> with request, messages, metrics, UI, and
+workspace, plus the current step.</li>
+<li>[ ] Hook errors appear in the terminal but do not stop the agent loop.</li>
+<li>[ ] The UI owns lifecycle text, icons, colours, and trace formatting.</li>
+<li>[ ] <code>tests/test_agent_lifecycle.py</code> verifies ordering and failure isolation.</li>
+<li>[ ] <code>SandboxWorkspace</code> enforces the local file path boundary.</li>
+<li>[ ] Lifecycle events are appended as JSONL records under <code>logs/</code>.</li>
+<li>[ ] Reads may use any readable absolute path; writes and edits stay in
+<code>work/</code> or <code>logs/</code>; no delete tool is available.</li>
+<li>[ ] <code>ConstrainedLocalRunner</code> uses an allowlist, no host shell, timeout, and
+bounded output.</li>
+<li>[ ] <code>tests/test_sandbox.py</code> verifies the constrained runner and its
+integration with lifecycle hooks and the UI.</li>
+</ul>
+<p>The agent still has the same core ReAct loop from Chapter 01. Chapter 02 makes
+that loop observable and extensible while separating host logic, extension
+code, terminal presentation, and file-tool policy. The current process runner
+does not isolate executed code from the operating system.</p>
+</article>
+    </main>
+  </div>
+</body>
+</html>
