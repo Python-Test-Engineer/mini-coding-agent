@@ -142,6 +142,46 @@ class SandboxAuditHookTests(unittest.TestCase):
 
 
 class SandboxAgentIntegrationTests(unittest.TestCase):
+    def test_agent_successfully_writes_to_an_allowed_workspace_path(self):
+        console = Console(record=True, width=120)
+        tool_reply = {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_write",
+                                "function": {
+                                    "name": "write_file",
+                                    "arguments": json.dumps(
+                                        {
+                                            "path": "work/notes/hello.txt",
+                                            "content": "saved in the workspace",
+                                        }
+                                    ),
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+        final_reply = {"choices": [{"message": {"content": "Finished", "tool_calls": []}}]}
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = SandboxWorkspace(Path(temp_dir) / "workspace")
+            with patch("agent.ui", UI(console=console)), patch.object(
+                agent, "WORKSPACE", workspace
+            ), patch("agent.chat", side_effect=[tool_reply, final_reply]):
+                agent.agent_loop("write a note in the workspace")
+
+            written_file = workspace.root / "notes" / "hello.txt"
+            self.assertEqual(
+                written_file.read_text(encoding="utf-8"), "saved in the workspace"
+            )
+            self.assertIn("Created work/notes/hello.txt", console.export_text())
+
     def test_path_rejection_is_returned_to_the_model_and_shown_by_the_ui(self):
         console = Console(record=True, width=120)
         tool_reply = {
