@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chapter 02 — The lifecycle loop, animated</title>
+  <style>
+    /* ------------------------------------------------------------------
+       Palette and type are lifted from GUIDE/guide.html so this page sits
+       beside the field guide without looking like a different document.
+       ------------------------------------------------------------------ */
+    :root {
+      color-scheme: light;
+      --paper: #f3f1e9;
+      --surface: #fffef9;
+      --ink: #172d31;
+      --muted: #5c6b68;
+      --line: #cbd2ca;
+      --accent: #c44b2d;
+      --accent-pale: #f5e2d7;
+      --mint: #dcebe3;
+      --deep: #17373b;
+      --code: #13282c;
+      --code-ink: #e9f0e8;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --serif: Georgia, "Times New Roman", serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 26px 34px 34px;
+    }
+
+    /* ---------------------------- header ---------------------------- */
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 30px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(30px, 3.4vw, 46px);
+      font-weight: 500;
+      letter-spacing: -.035em;
+      line-height: 1;
+    }
+
+    h1 em {
+      color: var(--accent);
+      font-style: normal;
+      font-weight: 500;
+    }
+
+    .dek {
+      max-width: 470px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    /* ---------------------------- layout ---------------------------- */
+    .board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 392px;
+      gap: 26px;
+      margin-top: 22px;
+      align-items: stretch;
+    }
+
+    /* --------------------------- the stage -------------------------- */
+    .stage-wrap {
+      min-width: 0;
+      padding: 6px 10px 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+    }
+
+    .stage {
+      position: relative;
+      /* Height-driven so a short projector window still shows the whole ring;
+         the ratio is fixed, so the frame and the stage stay in proportion. */
+      width: min(100%, 104vh);
+      aspect-ratio: 1100 / 700;
+      margin: 0 auto;
+      user-select: none;
+    }
+
+    /* Everything inside is drawn at a fixed 1100x700 and scaled as one
+       piece, so type, cards and the ring keep their proportions. */
+    .frame {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1100px;
+      height: 700px;
+      transform-origin: 0 0;
+    }
+
+    .frame > svg {
+      position: absolute;
+      inset: 0;
+      width: 1100px;
+      height: 700px;
+      overflow: visible;
+    }
+
+    /* Nodes are HTML so the type stays crisp when the stage scales. */
+    .node {
+      position: absolute;
+      width: 212px;
+      padding: 10px 13px 11px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--deep);
+      transform: translate(-50%, -50%);
+      transition: background .35s, border-color .35s, box-shadow .35s,
+                  transform .35s, color .35s;
+    }
+
+    .node .kicker {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      letter-spacing: .03em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .node strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 21px;
+      font-weight: 600;
+      line-height: 1.15;
+    }
+
+    .node small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .node.model { border-top-color: var(--deep); }
+    .node.tool { border-top-color: var(--accent); }
+
+    .node.active {
+      background: var(--surface);
+      border-color: var(--deep);
+      box-shadow: 0 0 0 4px rgba(23, 55, 59, .10), 0 12px 22px -18px rgba(0, 0, 0, .55);
+      transform: translate(-50%, -50%) scale(1.045);
+    }
+
+    .node.active .kicker { color: var(--accent); font-weight: 700; }
+
+    .node.tool.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(196, 75, 45, .14), 0 12px 22px -18px rgba(0, 0, 0, .55);
+    }
+
+    /* entry / exit gates, sitting off the ring */
+    .gate {
+      position: absolute;
+      width: 224px;
+      padding: 8px 13px;
+      background: var(--deep);
+      color: #f4f2e9;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      transform: translate(-50%, -50%);
+      transition: background .35s, box-shadow .35s, transform .35s;
+    }
+
+    .gate b {
+      display: block;
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .gate.active {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(196, 75, 45, .16);
+      transform: translate(-50%, -50%) scale(1.04);
+    }
+
+    /* stats in the middle of the ring */
+    .core {
+      position: absolute;
+      left: 550px;
+      top: 388px;
+      width: 270px;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .core .stat-row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 7px;
+    }
+
+    .core .stat {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .core .stat b {
+      display: block;
+      margin-top: 2px;
+      color: var(--deep);
+      font-family: var(--serif);
+      font-size: 30px;
+      font-weight: 500;
+      letter-spacing: -.03em;
+      text-transform: none;
+    }
+
+    .core p {
+      width: 240px;
+      margin: 0 auto;
+      min-height: 48px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .core .phase-name {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    /* ---------------------------- trace ----------------------------- */
+    .trace {
+      display: flex;
+      flex-direction: column;
+      min-height: 360px;
+      background: var(--code);
+      color: var(--code-ink);
+    }
+
+    .trace-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, .15);
+      color: #a9c0b7;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .trace-head .rec {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #e7bda8;
+    }
+
+    .trace-head .rec::before {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      content: "";
+      transition: opacity .3s;
+    }
+
+    .trace-head .rec.idle::before { opacity: .2; }
+
+    .lines {
+      flex: 1;
+      overflow: auto;
+      margin: 0;
+      padding: 12px 15px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      line-height: 1.62;
+      list-style: none;
+    }
+
+    .lines li {
+      display: flex;
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(4px);
+      animation: line-in .32s ease forwards;
+    }
+
+    @keyframes line-in {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .lines .marker {
+      flex: 0 0 34px;
+      color: #809996;
+    }
+
+    .lines .model .marker { color: #9fd8c8; }
+    .lines .tool .marker { color: #f0a17f; }
+    .lines .host .marker { color: #f3bc76; }
+
+    .lines .body { min-width: 0; overflow-wrap: anywhere; }
+    .lines .model .body { color: #d9efe6; }
+    .lines .tool .body { color: #f6d9cb; }
+    .lines .host .body { color: #f6e6c8; }
+    .lines .muted .body { color: #a9c0b7; }
+
+    .trace-foot {
+      padding: 10px 15px;
+      border-top: 1px solid rgba(255, 255, 255, .15);
+      color: #a9c0b7;
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+
+    .trace-foot b { color: #e7bda8; font-weight: 700; }
+
+    .stage-note {
+      margin: 12px 6px 0;
+      padding-bottom: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* --------------------------- controls --------------------------- */
+    .controls {
+      user-select: none;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 14px 6px 12px;
+    }
+
+    button {
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .18s, color .18s, border-color .18s;
+    }
+
+    button:hover { border-color: var(--deep); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    button.primary {
+      background: var(--deep);
+      border-color: var(--deep);
+      color: #f4f2e9;
+    }
+
+    button.primary:hover { background: #214a4f; }
+
+    .spacer { flex: 1; }
+
+    .hint {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .key {
+      padding: 1px 5px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      font-family: var(--mono);
+      font-size: 9.5px;
+    }
+
+    /* ---------------------------- footer ---------------------------- */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 26px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .legend span { display: inline-flex; align-items: center; gap: 7px; }
+
+    .swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--deep);
+    }
+
+    .swatch.tool { background: var(--accent); }
+    .swatch.gate { border-radius: 0; background: var(--deep); }
+
+    .credit {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 1080px) {
+      .board { grid-template-columns: minmax(0, 1fr); }
+      header { align-items: flex-start; flex-direction: column; gap: 12px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <div class="eyebrow">Chapter 02 / Lifecycle hooks</div>
+        <h1>One turn, <em>five hooks</em>, one loop.</h1>
+      </div>
+      <p class="dek">The host fires a named callback at each boundary it already crosses. The hook observes; the
+        host still calls the model, runs the tool, and decides when to stop.</p>
+    </header>
+
+    <div class="board">
+      <div>
+        <div class="stage-wrap">
+          <div class="stage" id="stage">
+            <div class="frame" id="frame">
+            <!-- Ring, trail and connector lines. Node cards are positioned over it. -->
+            <svg viewBox="0 0 1100 700" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7"
+                  orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#c44b2d"></path>
+                </marker>
+              </defs>
+
+              <!-- the idle ring -->
+              <ellipse id="ring" cx="550" cy="380" rx="340" ry="200" fill="none" stroke="#b5bfb4"
+                stroke-width="2" stroke-dasharray="7 7"></ellipse>
+
+              <!-- comma-shaped trail that follows the dot -->
+              <path id="trail" fill="none" stroke="#c44b2d" stroke-width="6" stroke-linecap="round"
+                opacity="0"></path>
+
+              <!-- dot -->
+              <circle id="dot" cx="550" cy="180" r="9" fill="#c44b2d" opacity="0"></circle>
+              <circle id="dot-halo" cx="550" cy="180" r="18" fill="none" stroke="#c44b2d" stroke-width="1.5"
+                opacity="0"></circle>
+
+              <!-- entry spur: gate -> first model request -->
+              <path d="M 258 70 C 360 76, 430 100, 466 132" fill="none" stroke="#c44b2d" stroke-width="1.6"
+                stroke-dasharray="5 5" marker-end="url(#arrow)"></path>
+
+              <!-- exit spur: model response -> gate (no tool calls) -->
+              <path d="M 928 424 C 976 480, 976 550, 962 612" fill="none" stroke="#c44b2d" stroke-width="1.6"
+                stroke-dasharray="5 5" marker-end="url(#arrow)"></path>
+              <text x="1012" y="528" fill="#c44b2d" font-family="Cascadia Code, Consolas, monospace" font-size="10"
+                text-anchor="middle">no tool</text>
+              <text x="1012" y="542" fill="#c44b2d" font-family="Cascadia Code, Consolas, monospace" font-size="10"
+                text-anchor="middle">calls</text>
+
+              <!-- loop label on the top-left arc -->
+            </svg>
+
+            <div class="gate" id="gate-in" style="left:150px; top:70px">
+              <b>before_input &middot; before_loop</b>
+              a request becomes a turn
+            </div>
+
+            <div class="gate" id="gate-out" style="left:960px; top:650px">
+              <b>after_loop &middot; after_input</b>
+              answer returned
+            </div>
+
+            <div class="core">
+              <div class="stat-row">
+                <div class="stat">step <b id="stat-step">1</b></div>
+                <div class="stat">messages <b id="stat-msgs">2</b></div>
+                <div class="stat">tools run <b id="stat-tools">0</b></div>
+              </div>
+              <p><span class="phase-name" id="phase-name">ready</span><span id="phase-desc">Press play to walk one
+                  request through the loop.</span></p>
+            </div>
+            </div><!-- /frame -->
+          </div>
+        </div>
+        <p class="stage-note">The tool result joins the message history, and the model is asked again. That
+          repetition is the loop; a reply with no tool calls is the way out.</p>
+
+        <div class="controls">
+          <button class="primary" id="btn-play">Play</button>
+          <button id="btn-pause">Pause</button>
+          <button id="btn-step">Step</button>
+          <button id="btn-reset">Reset</button>
+          <div class="spacer"></div>
+          <span class="hint"><span class="key">space</span> play/pause &nbsp; <span class="key">&#8594;</span>
+            step</span>
+        </div>
+      </div>
+
+      <aside class="trace" aria-label="Lifecycle trace">
+        <div class="trace-head">
+          <span>lifecycle trace</span>
+          <span class="rec idle" id="rec">recording</span>
+        </div>
+        <ol class="lines" id="lines" aria-live="polite"></ol>
+        <div class="trace-foot" id="foot">
+          Every line is a callback the host fires. Hook failures are contained: the loop keeps going.
+        </div>
+      </aside>
+    </div>
+
+    <div class="legend">
+      <span><i class="swatch"></i> model boundary</span>
+      <span><i class="swatch tool"></i> host tool boundary</span>
+      <span><i class="swatch gate"></i> turn boundary</span>
+      <span class="credit">Hooks observe. The host acts.</span>
+    </div>
+  </div>
+
+  <script>
+    /* ==================================================================
+       1. Geometry — one ellipse, four boundary points, clockwise travel.
+       Angles are in radians and follow SVG's y-down convention, so
+       -PI/2 is the top of the ring and angles increase clockwise.
+       ================================================================== */
+    const CX = 550, CY = 380, RX = 340, RY = 200;
+
+    const NODES = [
+      {
+        angle: -Math.PI / 2,
+        x: 550, y: 180,
+        kicker: "before_brain_request",
+        title: "Model request",
+        note: "messages go out",
+        kind: "model"
+      },
+      {
+        angle: 0,
+        x: 890, y: 380,
+        kicker: "after_brain_response",
+        title: "Model response",
+        note: "tool calls?",
+        kind: "model"
+      },
+      {
+        angle: Math.PI / 2,
+        x: 550, y: 580,
+        kicker: "before_tool_execute",
+        title: "Tool starts",
+        note: "host runs Python",
+        kind: "tool"
+      },
+      {
+        angle: Math.PI,
+        x: 210, y: 380,
+        kicker: "after_tool_execute",
+        title: "Tool finished",
+        note: "result \u2192 history",
+        kind: "tool"
+      }
+    ];
+
+    /* ==================================================================
+       2. Script — the turn we are animating. Each entry is one hook
+       notification plus the lines it adds to the trace. Keep this
+       readable: it is the whole story of the page.
+       ================================================================== */
+    const PHASES = [
+      {
+        target: "in",
+        name: "before_input / before_loop",
+        desc: "The host builds the message list and an AgentContext, then announces the turn.",
+        lines: [
+          ["in", "input received - 38 characters"],
+          ["*", "agent loop started - waiting for a model response"]
+        ],
+        stat: { step: 1, msgs: 2, tools: 0 }
+      },
+      {
+        target: 0,
+        name: "before_brain_request",
+        desc: "The live message list is shown to the hook, then sent to the model.",
+        lines: [["AI", "model request - step 1 - 2 messages"]],
+        stat: { step: 1, msgs: 2, tools: 0 }
+      },
+      {
+        target: 1,
+        name: "after_brain_response",
+        desc: "The reply asks for one tool. The host \u2014 not the hook \u2014 will run it.",
+        lines: [["AI", "model response - step 1 - 1 tool call(s)"]],
+        stat: { step: 1, msgs: 2, tools: 0 }
+      },
+      {
+        target: 2,
+        name: "before_tool_execute",
+        desc: "The hook sees the tool name and decoded arguments before dispatch.",
+        lines: [["", "tool starting - write_file - 2 argument(s)"]],
+        stat: { step: 1, msgs: 2, tools: 0 }
+      },
+      {
+        target: 3,
+        name: "after_tool_execute",
+        desc: "The result (or an ERROR result) is appended to history as a tool message.",
+        lines: [["ok", "tool finished - write_file - complete"]],
+        stat: { step: 1, msgs: 3, tools: 1 }
+      },
+      {
+        target: 0,
+        name: "loop repeats",
+        desc: "History now holds the tool result, so the model can see what happened.",
+        lines: [["AI", "model request - step 1 - 3 messages"]],
+        stat: { step: 1, msgs: 3, tools: 1 }
+      },
+      {
+        target: 1,
+        name: "after_brain_response",
+        desc: "This reply has no tool calls. Nothing left to execute this turn.",
+        lines: [["AI", "model response - step 1 - no tool calls"]],
+        stat: { step: 1, msgs: 3, tools: 1 }
+      },
+      {
+        target: "out",
+        name: "after_loop / after_input",
+        desc: "The loop closes. Hooks have seen every transition; the host did every action.",
+        lines: [
+          ["*", "agent loop finished"],
+          ["out", "response returned - loop closed"]
+        ],
+        stat: { step: 1, msgs: 3, tools: 1 }
+      }
+    ];
+
+    /* ==================================================================
+       3. Build the four node cards once, positioned as a percentage of
+       the stage so they line up with the SVG at any size.
+       ================================================================== */
+    const stage = document.getElementById("stage");
+    const frame = document.getElementById("frame");
+
+    /* The frame is authored at 1100x700; scale it to whatever room the
+       stage has, keeping every element in proportion. */
+    function fitFrame() {
+      const scale = stage.clientWidth / 1100;
+      frame.style.transform = "scale(" + scale + ")";
+    }
+    new ResizeObserver(fitFrame).observe(stage);
+    fitFrame();
+    const nodeEls = [];
+
+    NODES.forEach((node, index) => {
+      const el = document.createElement("div");
+      el.className = "node " + node.kind;
+      el.style.left = node.x + "px";
+      el.style.top = node.y + "px";
+      el.innerHTML =
+        '<span class="kicker">' + NODES[index].kicker + "</span>" +
+        "<strong>" + NODES[index].title + "</strong>" +
+        "<small>" + NODES[index].note + "</small>";
+      frame.appendChild(el);
+      nodeEls.push(el);
+    });
+
+    const gateIn = document.getElementById("gate-in");
+    const gateOut = document.getElementById("gate-out");
+    const dot = document.getElementById("dot");
+    const halo = document.getElementById("dot-halo");
+    const trail = document.getElementById("trail");
+    const linesEl = document.getElementById("lines");
+    const recEl = document.getElementById("rec");
+    const footEl = document.getElementById("foot");
+    const statStep = document.getElementById("stat-step");
+    const statMsgs = document.getElementById("stat-msgs");
+    const statTools = document.getElementById("stat-tools");
+    const phaseName = document.getElementById("phase-name");
+    const phaseDesc = document.getElementById("phase-desc");
+    const btnPlay = document.getElementById("btn-play");
+    const btnPause = document.getElementById("btn-pause");
+
+    /* ==================================================================
+       4. Animation state. `paused` is read by tick(), so a pause freezes
+       the dot mid-flight instead of snapping to the next phase.
+       ================================================================== */
+    let paused = true;
+    let running = false;
+    let runToken = 0;
+    let phaseIndex = 0;
+    let speed = 1;
+    let angle = NODES[0].angle;   // current dot angle on the ring
+    let trailAngle = null;        // where the visible trail starts
+    let onRing = true;            // false while the dot sits on an entry/exit spur
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /* A promise-based clock that only advances while not paused. */
+    function tick(duration, onFrame) {
+      return new Promise((resolve) => {
+        if (reduceMotion) {
+          onFrame(1);
+          resolve();
+          return;
+        }
+        let elapsed = 0;
+        let last = performance.now();
+        function frame(now) {
+          const delta = Math.min(now - last, 64); // clamp after tab switches
+          last = now;
+          if (!paused) elapsed += delta;
+          const t = Math.min(1, elapsed / Math.max(duration, 1));
+          onFrame(t);
+          if (t < 1) requestAnimationFrame(frame);
+          else resolve();
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+
+    const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+    function pointAt(deg) {
+      return {
+        x: CX + RX * Math.cos(deg),
+        y: CY + RY * Math.sin(deg)
+      };
+    }
+
+    /* Short arc just behind the dot, drawn as an SVG path each frame. */
+    function drawTrail(from, to) {
+      if (from === null || Math.abs(to - from) < 0.001) {
+        trail.setAttribute("opacity", "0");
+        return;
+      }
+      const a = pointAt(from);
+      const b = pointAt(to);
+      const largeArc = Math.abs(to - from) > Math.PI ? 1 : 0;
+      trail.setAttribute("d",
+        "M " + a.x.toFixed(2) + " " + a.y.toFixed(2) +
+        " A " + RX + " " + RY + " 0 " + largeArc + " 1 " +
+        b.x.toFixed(2) + " " + b.y.toFixed(2));
+      trail.setAttribute("opacity", "0.85");
+    }
+
+    function placeDot(x, y) {
+      dot.setAttribute("cx", x);
+      dot.setAttribute("cy", y);
+      halo.setAttribute("cx", x);
+      halo.setAttribute("cy", y);
+    }
+
+    function setPhaseLabels(phase) {
+      phaseName.textContent = phase.name;
+      phaseDesc.textContent = phase.desc;
+      if (phase.stat) {
+        statStep.textContent = phase.stat.step;
+        statMsgs.textContent = phase.stat.msgs;
+        statTools.textContent = phase.stat.tools;
+      }
+    }
+
+    function clearActive() {
+      nodeEls.forEach((el) => el.classList.remove("active"));
+      gateIn.classList.remove("active");
+      gateOut.classList.remove("active");
+    }
+
+    function addLine(kind, marker, text) {
+      const li = document.createElement("li");
+      li.className = kind;
+      li.innerHTML =
+        '<span class="marker">[' + marker + "]</span>" +
+        '<span class="body"></span>';
+      li.querySelector(".body").textContent = text;
+      linesEl.appendChild(li);
+      // keep the console short enough to read from the back of the room
+      while (linesEl.children.length > 10) linesEl.removeChild(linesEl.firstChild);
+      linesEl.scrollTop = linesEl.scrollHeight;
+    }
+
+    /* ---------------------------------------------------------------
+       Move the dot. Ring targets follow the ellipse; gate targets use a
+       short straight hop so the entry/exit read as spurs, not ring path.
+       --------------------------------------------------------------- */
+    async function travelTo(target) {
+      dot.setAttribute("opacity", "1");
+      halo.setAttribute("opacity", "0.35");
+
+      let toX, toY, fromX = +dot.getAttribute("cx"), fromY = +dot.getAttribute("cy");
+      let ringTravel = false;
+      let startAngle = angle;
+      let endAngle = angle;
+
+      if (typeof target === "number") {
+        const dest = NODES[target];
+        toX = dest.x; toY = dest.y;
+        if (!onRing) {
+          // Coming off a spur (entry gate): hop straight onto the boundary
+          // instead of making the dot lap the whole ring.
+          ringTravel = false;
+        } else {
+          // choose the clockwise sweep, with the shortest wrap
+          endAngle = dest.angle;
+          while (endAngle <= startAngle + 0.0001) endAngle += Math.PI * 2;
+          ringTravel = true;
+        }
+      } else if (target === "in") {
+        toX = 258; toY = 70;
+        onRing = false;
+      } else {
+        toX = 928; toY = 424;
+        onRing = false;
+      }
+
+      const duration = ringTravel ? 1050 : 700;
+
+      await tick(duration / speed, (t) => {
+        const e = easeInOut(t);
+        if (ringTravel) {
+          const a = startAngle + (endAngle - startAngle) * e;
+          const p = pointAt(a);
+          angle = a;
+          trailAngle = a - 0.55;
+          drawTrail(trailAngle, a);
+          placeDot(p.x, p.y);
+        } else {
+          placeDot(fromX + (toX - fromX) * e, fromY + (toY - fromY) * e);
+          trail.setAttribute("opacity", "0");
+        }
+      });
+
+      if (typeof target === "number") {
+        angle = NODES[target].angle; // normalise for the next hop
+        onRing = true;
+      }
+      if (ringTravel) trail.setAttribute("opacity", "0");
+    }
+
+    /* ---------------------------------------------------------------
+       One phase: move, light the boundary, append trace lines, dwell.
+       --------------------------------------------------------------- */
+    async function runPhase(phase, token, auto) {
+      await travelTo(phase.target);
+
+      if (token !== runToken) return;
+
+      clearActive();
+      if (phase.target === "in") gateIn.classList.add("active");
+      else if (phase.target === "out") gateOut.classList.add("active");
+      else nodeEls[phase.target].classList.add("active");
+
+      setPhaseLabels(phase);
+      phase.lines.forEach(([kind, text]) => {
+        const glyph = kind === "in" ? "in" :
+          kind === "out" ? "out" :
+          kind === "AI" ? "AI" :
+          kind === "ok" ? "ok" :
+          kind === "*" ? "*" : ">";
+        addLine(kind === "AI" ? "model" : kind === "ok" || kind === ">"
+          ? "tool" : kind === "in" || kind === "out" ? "muted" : "host",
+          glyph, text);
+      });
+
+      halo.setAttribute("opacity", "0.12");
+
+      // dwell so the audience can read this boundary before the next one
+      await tick((auto ? 1250 : 350) / speed, () => { });
+    }
+
+    /* ---------------------------------------------------------------
+       Runner. Each tick of the loop advances one phase; step mode stops
+       after a single phase so a presenter can narrate it.
+       --------------------------------------------------------------- */
+    async function play(fromIndex, auto) {
+      const token = ++runToken;
+      running = true;
+      paused = false;
+      btnPlay.textContent = "Replay";
+      recEl.classList.remove("idle");
+
+      for (let i = fromIndex; i < PHASES.length; i++) {
+        if (token !== runToken) return;      // cancelled by reset/replay
+        phaseIndex = i;
+        await runPhase(PHASES[i], token, auto);
+        if (token !== runToken) return;
+        if (!auto) {
+          // step mode: leave the dot parked on this boundary
+          running = false;
+          paused = true;
+          return;
+        }
+      }
+
+      if (token !== runToken) return;
+      running = false;
+      paused = true;
+      btnPause.textContent = "Pause";
+      recEl.classList.add("idle");
+      const notifications = PHASES.reduce((n, phase) => n + phase.lines.length, 0);
+      footEl.innerHTML = "<b>Loop closed.</b> " + notifications +
+        " hook notifications, two model requests, one tool call. Press Play to run it again.";
+    }
+
+    function reset() {
+      runToken++;
+      running = false;
+      paused = true;
+      phaseIndex = 0;
+      angle = NODES[0].angle;
+      onRing = true;
+      clearActive();
+      nodeEls.forEach((el) => el.classList.remove("active"));
+      linesEl.innerHTML = "";
+      recEl.classList.add("idle");
+      footEl.textContent =
+        "Every line is a callback the host fires. Hook failures are contained: the loop keeps going.";
+      phaseName.textContent = "ready";
+      phaseDesc.textContent = "Press play to walk one request through the loop.";
+      statStep.textContent = "1";
+      statMsgs.textContent = "2";
+      statTools.textContent = "0";
+      dot.setAttribute("opacity", "0.85");
+      halo.setAttribute("opacity", "0");
+      trail.setAttribute("opacity", "0");
+      btnPlay.textContent = "Play";
+      btnPause.textContent = "Pause";
+      placeDot(NODES[0].x, NODES[0].y);
+    }
+
+    /* ==================================================================
+       5. Controls and keyboard.
+       ================================================================== */
+    btnPlay.addEventListener("click", () => {
+      reset();
+      play(0, true);
+    });
+
+    btnPause.addEventListener("click", () => {
+      paused = !paused;
+      btnPause.textContent = paused ? "Resume" : "Pause";
+    });
+
+    document.getElementById("btn-step").addEventListener("click", () => {
+      if (running && !paused) { return; }   // let the current run settle first
+      const next = linesEl.children.length === 0 && phaseIndex === 0 ? 0 : phaseIndex + 1;
+      if (next >= PHASES.length) { reset(); play(0, false); return; }
+      play(next, false);
+    });
+
+    document.getElementById("btn-reset").addEventListener("click", () => {
+      reset();
+      btnPause.textContent = "Pause";
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.code === "Space") {
+        event.preventDefault();
+        if (running) btnPause.click();
+        else btnPlay.click();
+      }
+      if (event.code === "ArrowRight") {
+        event.preventDefault();
+        document.getElementById("btn-step").click();
+      }
+    });
+
+    /* First paint: dot parked on the first boundary, ready to go. */
+    placeDot(NODES[0].x, NODES[0].y);
+    dot.setAttribute("opacity", "0.85");
+  </script>
+</body>
+
+</html>

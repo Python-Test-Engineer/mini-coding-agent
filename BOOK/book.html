@@ -24,7 +24,8 @@
       --serif: Georgia, "Times New Roman", serif;
     }
     * { box-sizing: border-box; }
-    html { font-size: 125%; scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    /* Keep anchor targets below the sticky reader controls when navigating from the TOC. */
+    html { font-size: 125%; scroll-behavior: smooth; scroll-padding-top: 5rem; }
     body {
       margin: 0;
       background: var(--paper);
@@ -514,6 +515,14 @@ Hooks receive information about the transition and can react to it.</p>
 <tr>
 <td><code>tests/test_006_sandbox.py</code></td>
 <td>Verifies allowed roots, external reads, event logs, command limits, and agent integration.</td>
+</tr>
+<tr>
+<td><code>src/examplesCH02.py</code></td>
+<td>Runs offline Rich examples of hook callbacks and sandbox pass/fail cases without an API request.</td>
+</tr>
+<tr>
+<td><code>EXAMPLES/EXAMPLES.md</code></td>
+<td>Explains how to run the combined demo and standalone hook and sandbox examples.</td>
 </tr>
 </tbody>
 </table>

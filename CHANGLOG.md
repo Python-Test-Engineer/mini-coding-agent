@@ -6,6 +6,22 @@ This records the differences between the current local branch tips:
 - `CH01` — `d9035da` (`test`)
 - `CH02` — `43145c0` (`Create BOOK skill - rename BOOk to GUIDE`)
 
+## Additions after the listed branch snapshots
+
+These working-tree changes are not included in the branch-tip comparisons
+above:
+
+- Added `src/examplesCH02.py`, an API-free Rich demo of lifecycle hooks and
+  allowed and rejected sandbox operations. It saves a copy of itself and a
+  greeting script in `work/`, then demonstrates that a root-level
+  `goodbye.py` write is rejected.
+- Added `EXAMPLES/EXAMPLES.md` and a README run section with instructions for
+  the demo and its standalone examples. Linked to the demo from `GUIDE/guide.html`.
+- Updated the Chapter 02 file list and the combined `BOOK/book.html` page to
+  include the new student examples.
+- Added `SKILLS/update-docs/SKILL.md` to synchronize relevant project docs with
+  code and workshop changes.
+
 ## Branch history note
 
 The current `CH01` and `CH02` tips share base commit `089cf0f`; `CH02` is not a

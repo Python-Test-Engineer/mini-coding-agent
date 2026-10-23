@@ -24,6 +24,20 @@ use the repository-root `work/` directory, regardless of where the agent is
 launched. Lifecycle and sandbox records are written as JSONL files under
 repository-root `logs/`.
 
+## Run the offline hook and sandbox examples
+
+The API-free Rich demo shows lifecycle callbacks and sandbox operations that
+pass or fail as expected. From the repository root, run:
+
+```powershell
+cd src
+uv run python examplesCH02.py
+```
+
+The demo copies itself and a greeting script into `work/`, then shows that a
+write to the repository root is rejected. See [EXAMPLES/EXAMPLES.md](EXAMPLES/EXAMPLES.md)
+for the walkthrough and standalone snippets.
+
 ## Requirements
 
 - Python 3.11 or later

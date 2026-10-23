@@ -1,2 +1,1 @@
-# Example script created by the agent's write-file tool.
-print("Hello, world!")
+print("Hello from work/")
