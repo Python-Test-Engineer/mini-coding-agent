@@ -1197,7 +1197,7 @@
           </article>
           <article class="step"><span class="step-no">06 · FINISH</span>
             <h3>No more tools</h3>
-            <p>A response without tool calls ends the loop; eight steps is the maximum.</p>
+            <p>A response without tool calls ends this request's model loop; eight steps is the maximum per request.</p>
           </article>
         </div>
         <div class="message-example" aria-label="Conversation message example">
@@ -1208,6 +1208,10 @@
           <div class="message-role">assistant</div>
           <div class="message-content">final answer with no <code>tool_calls</code> · the loop ends</div>
         </div>
+        <p class="section-intro">The final answer stays in the message history. After each answer, the app asks for another
+          request and adds it to that same history, so follow-ups can refer to earlier work. The eight-step limit applies
+          to each request, while usage totals accumulate across the conversation. Enter <code>exit</code> or
+          <code>quit</code> to finish; blank requests are ignored. EOF or Ctrl+C also ends the session.</p>
       </section>
 
       <section class="lesson-section" id="setup">
@@ -1253,7 +1257,7 @@
         <div class="metric-line">
           <div class="metric"><b>CONTEXT ESTIMATE</b><span>Latest <code>prompt_tokens</code>. A percentage appears only
               if the response includes <code>context_limit</code>.</span></div>
-          <div class="metric"><b>TOTAL TOKENS</b><span>Prompt and completion tokens accumulated over model calls.</span>
+          <div class="metric"><b>TOTAL TOKENS</b><span>Prompt and completion tokens accumulated over model calls in the conversation.</span>
           </div>
           <div class="metric"><b>COST SO FAR</b><span>Sum of response <code>cost</code> values when the provider
               supplies them.</span></div>
@@ -1286,6 +1290,10 @@ uv run agent.py "write a hello world script and run it"</code></pre>
             <pre class="run-command"><code>uv run python -m unittest discover -s tests -v</code></pre>
           </div>
         </div>
+        <p class="section-intro">With no command-line request, the app prompts for the first one. With the example command, it
+          runs that request first. Both modes return to the prompt after each answer and retain the conversation history.
+          Lifecycle session hooks run once around the conversation; input and model/tool hooks run for each request. Use
+          <code>exit</code> or <code>quit</code> to finish.</p>
         <div class="footer-note">
           <span>Chapter 01 · Mini coding agent</span>
           <span>Next: add tools, a real sandbox, context trimming, and human approval.</span>
@@ -1341,8 +1349,10 @@ uv run agent.py "write a hello world script and run it"</code></pre>
           <div>
             <div class="section-kicker">One documented interface</div>
             <h2>Each callback sees the current turn.</h2>
-            <p class="section-intro"><code>Hooks</code> is a no-op base class in <code>src/lifecycle.py</code>.
-              Students override only the callbacks they need. Each receives an <code>AgentContext</code> with the request,
+            <p class="section-intro"><code>Hooks</code> in <code>src/lifecycle.py</code> asynchronously plays
+              <code>%WINDIR%\Media\Windows Logon.wav</code> at session start on Windows when the file is present.
+              Its other callbacks are no-ops by default. Students override only the callbacks they need. Each receives
+              an <code>AgentContext</code> with the request,
               live message history, usage metrics, active UI, workspace file policy and event log, and current model step.</p>
           </div>
         </div>

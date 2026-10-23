@@ -9,10 +9,12 @@ are sent back to the model until it returns a final answer.
 ## What it demonstrates
 
 - An OpenRouter chat-completions request with JSON tool schemas.
-- A ReAct-style loop, limited to eight model-response steps.
+- A ReAct-style loop, limited to eight model-response steps per request.
 - Four host tools: contained write, edit, and read operations, plus an
   allowlisted command runner that does not start a shell.
 - Lifecycle traces and sandbox audit hooks around each tool execution.
+- On Windows, `%WINDIR%\Media\Windows Logon.wav` plays when a session begins,
+  if the file is present.
 - A Rich terminal UI that displays model text, tool calls, and tool results.
 
 The code is in `src/agent.py`; `src/ui.py` and `src/ui.json` configure the
@@ -56,9 +58,12 @@ If `MODEL` is omitted from both the environment and `.env`, the app uses
 uv run agent.py
 ```
 
-The app will prompt for a request. The agent always stores generated files in
-the repository-root `work/` directory, including when launched from `src/`.
-It appends one JSON object per lifecycle event to a generated file in `logs/`.
+The app prompts for a request if you did not provide one on the command line.
+After each answer, it asks for another request and keeps the conversation
+history. Type `exit` or `quit` to finish. The agent always stores generated
+files in the repository-root `work/` directory, including when launched from
+`src/`. It appends one JSON object per lifecycle event to a generated file in
+`logs/`.
 
 ## Safety note
 

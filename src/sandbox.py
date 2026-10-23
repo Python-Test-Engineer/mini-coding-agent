@@ -261,6 +261,8 @@ class SandboxAuditHooks(Hooks):
     """Default lifecycle observer that records sandbox-related transitions."""
 
     def on_session_start(self, agent: Any) -> None:
+        # Keep the base session-start jingle and add the audit record.
+        super().on_session_start(agent)
         agent.workspace.record("session_started", "constrained local runner started")
 
     def on_session_stop(self, agent: Any) -> None:

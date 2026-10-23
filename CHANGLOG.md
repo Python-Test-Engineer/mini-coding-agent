@@ -78,3 +78,20 @@ forward in a later commit.
 - The controls scale chapter prose, headings, tables, and code from 80% to 160%
   in 10% steps. The TOC and controls retain their size.
 - Updated `SKILLS/workshop-book/SKILL.md` with the control behavior and range.
+
+## Follow-up conversation loop integrated from CH01
+
+- Ported the interactive request loop from the CH01 working copy into CH02's
+  agent while preserving lifecycle hooks and the constrained workspace runner.
+- Shared message history and usage metrics across requests; each request keeps
+  its own eight-step model/tool limit. Session hooks now wrap the conversation,
+  and turn hooks still wrap each request.
+- Integrated the updated `CH01.md` source into this branch and regenerated its
+  section in `BOOK/book.html`; updated the guide and README to match.
+
+## Windows session-start sound
+
+- The base `Hooks.on_session_start()` asynchronously plays
+  `%WINDIR%\Media\Windows Logon.wav` on Windows when the file is present.
+- `SandboxAuditHooks` calls the base hook and still records its session-start
+  event. Other platforms and unavailable audio files continue without sound.

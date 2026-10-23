@@ -232,21 +232,22 @@
         <h2>Mini Coding Agent</h2>
         <p>Complete workshop book</p>
       </header>
-      <article class="chapter" id="chapter-01" aria-labelledby="chapter-01-title"><h1 id="chapter-01-title">How mini-coding-agent works</h1>
-<p><code>src/agent.py</code> is a small, working <strong>agentic coding loop</strong>: a model chooses
-tools, the Python host executes them, and their results go back to the model.
+      <article class="chapter" id="chapter-01" aria-labelledby="chapter-01-title">
+<h1 id="chapter-01-title">How mini-coding-agent works</h1>
+<p><code>src/agent.py</code> implements a small, working <strong>agentic coding loop</strong>. The model
+chooses tools, Python executes them, and the results return to the model.
 It demonstrates the core pattern used by coding agents without an agent
 framework or LLM SDK. The agent uses <code>rich</code> for its console interface; HTTP,
 JSON, filesystem, and process operations use the Python standard library.</p>
-<p>The app lives in <code>src/</code>: <code>agent.py</code> owns the OpenRouter request, tool functions,
-agent loop, and usage tracking; <code>ui.py</code> renders the console and footer; <code>ui.json</code>
-configures its labels and Rich styles; <code>tests/</code> contains the <code>unittest</code> suite;
-and <code>work/</code> is the intended working directory for generated files and commands.
+<p>The app lives in <code>src/</code>. <code>agent.py</code> owns the OpenRouter request, tool functions,
+agent loop, and usage tracking. <code>ui.py</code> renders the console and footer. <code>ui.json</code>
+configures its labels and Rich styles. <code>tests/</code> contains the <code>unittest</code> suite.
+<code>work/</code> is the intended working directory for generated files and commands.
 <code>demo-prompt.md</code> contains a sample request. The root <code>main.py</code> is only a greeting
-stub; launch the actual agent with <code>src/agent.py</code>.</p>
-<p>The whole point is to show <em>what an agent actually is</em>: not one magic LLM call,
-but a <strong>loop</strong> in which the model repeatedly decides what to do, the host executes
-it, and the result is handed back — until the model stops asking for tools.</p>
+stub. Launch the actual agent with <code>src/agent.py</code>.</p>
+<p>The point is to show <em>what an agent actually is</em>. It is not one magic LLM call,
+but a <strong>loop</strong>. The model decides what to do, the host executes it, and the
+result returns to the model. This repeats until the model stops asking for tools.</p>
 <pre><code>request ─▶ [ model response ] ─▶ tool call ─▶ host runs it ─▶ result ─▶ [ model response ]
                                       ▲                                           │
                                       └──────────── loop (max 8 steps) ──────────┘
@@ -287,11 +288,11 @@ are exposed. <code>work/</code> is the intended working directory, but not a sec
 </tr>
 </tbody>
 </table>
-<p>The agent anchors <code>WORKDIR</code> to the repository root, so it can create
-<code>work/hello.py</code> even when launched from <code>src/</code>, run <code>python hello.py</code>, inspect
-the output, edit the script, and run it again — a complete fix cycle. <code>run()</code>
-uses <code>work/</code> as the command's current directory and returns stdout, or stderr if
-stdout is empty; it does not report the process exit code separately.</p>
+<p>The agent anchors <code>WORKDIR</code> to the repository root. It can create
+<code>work/hello.py</code> even when launched from <code>src/</code>, then run <code>python hello.py</code>.
+It can inspect the output, edit the script, and run it again to complete a fix
+cycle. <code>run()</code> uses <code>work/</code> as the command's current directory. It returns
+stdout, or stderr when stdout is empty. It does not report the process exit code.</p>
 <blockquote>
 <p><strong>Security note:</strong> <code>work/</code> is only the default working directory, not a
 sandbox. File tools do not check that paths stay inside it, and <code>run()</code> uses
@@ -331,8 +332,8 @@ requested operations with the permissions of the user running the app. This
 separation is how tool calling works; it is not a security boundary.</p>
 <hr>
 <h2 id="chapter-01-the-message-history-that-drives-it">The message history that drives it</h2>
-<p>The API is stateless — each request is a batch of messages. <code>agent.py</code> keeps
-the running conversation in a plain list and re-sends it every step:</p>
+<p>The API is stateless: each request is a batch of messages. <code>agent.py</code> keeps the
+conversation in a plain list and resends it with each request:</p>
 <pre><code>system   You are a minimal coding agent...
 user     write a hello world script and run it
 assistant  &lt;text&gt;      (rendered with the thought label configured in ui.json)
@@ -347,12 +348,19 @@ assistant  &lt;final answer, no tool_calls&gt;    → loop ends
 <li><strong>Tool results carry an <code>id</code>.</strong> Each assistant <code>tool_call</code> has an <code>id</code>; the
 host echoes it on the corresponding <code>tool</code> message so the model can pair them.</li>
 <li><strong>The loop ends when the model returns no <code>tool_calls</code>.</strong> The app also stops
-after at most eight model-response iterations (<code>max_steps=8</code>), even if the
-model keeps requesting tools.</li>
+after at most eight model-response iterations for that request
+(<code>max_steps=8</code>), even if the model keeps requesting tools.</li>
 </ul>
-<p>Unlike the HTML &quot;memory&quot; demo (which stores chat text in <code>localStorage</code>), here
-the <em>entire</em> tool conversation is the working memory — everything is re-sent
-each iteration, which is why the agent can remember what it wrote earlier.</p>
+<p>The HTML &quot;memory&quot; demo stores chat text in <code>localStorage</code>. Here, the <em>entire</em>
+tool conversation is the working memory. The app resends it each iteration, so
+the agent can remember what it wrote earlier.</p>
+<p>That working memory now spans follow-up requests too. When the model gives a
+final answer, <code>agent_loop()</code> adds it to the history. The outer conversation loop
+then asks for another request and adds it as a new <code>user</code> message. Each
+follow-up can refer to earlier requests, answers, and tool results. The
+eight-step limit applies to each request; usage totals accumulate across the
+interactive conversation. Type <code>exit</code> or <code>quit</code> to finish, or end input with
+Ctrl+C or EOF.</p>
 <hr>
 <h2 id="chapter-01-configuration-the-api-call">Configuration &amp; the API call</h2>
 <ul>
@@ -390,54 +398,56 @@ highlighting and the configured theme.</li>
 tokens, and cumulative cost. It shows context-window percentage only when a
 context limit is available; otherwise it labels the limit as unavailable.</li>
 </ul>
-<p>Rich components take styles separately from their text: for example, a
-<code>Panel</code> has a title style and border style, while a <code>Text</code> object can style
-individual spans. This is how the interface highlights the model prompt,
+<p>Rich components take styles separately from their text. For example, a
+<code>Panel</code> has title and border styles. A <code>Text</code> object can style individual spans.
+This lets the interface highlight the model prompt,
 tools, code and results without mixing terminal escape codes into agent logic.</p>
 <h3 id="chapter-01-what-ui-json-controls">What <code>ui.json</code> controls</h3>
 <p><code>ui.json</code> is the UI's visual and wording configuration, not the agent's
 behavior. Its <code>labels</code> values supply the text shown by <code>ui.py</code>; <code>{model}</code> is
 substituted into the model prompt label and <code>{step}</code> into the thought-panel
-title. Its <code>styles</code> values are Rich style strings: for example, <code>bold cyan</code>
-sets bold cyan text, <code>yellow</code> sets a panel border color, and <code>monokai</code> selects
+title. Its <code>styles</code> values are Rich style strings. For example, <code>bold cyan</code>
+sets bold cyan text, and <code>yellow</code> sets a panel border color. <code>monokai</code> selects
 the syntax-highlighting theme used by <code>Syntax</code>.</p>
-<p>The keys are looked up directly by <code>ui.py</code>, so keep the existing key names and
-any format placeholders when changing the JSON. You can edit values to rename
-the prompt, header, tool/result labels, and status messages, or change colors
-and highlighting without changing the agent loop. Invalid JSON, missing keys,
-or an unsupported Rich style can prevent the UI from starting.</p>
+<p>The keys are looked up directly by <code>ui.py</code>. Keep their names and format
+placeholders when changing the JSON. Edit values to rename the prompt, header,
+tool/result labels, or status messages. You can also change colors and
+highlighting without changing the agent loop. Invalid JSON, missing keys, or an
+unsupported Rich style can prevent the UI from starting.</p>
 <h2 id="chapter-01-running-it">Running it</h2>
 <pre><code class="language-sh">cd src
 uv run agent.py &quot;write a hello world script and run it&quot;
-# or: pass nothing for an interactive prompt
+# or: omit the request to start with an interactive prompt
 # or override: MODEL=openai/gpt-4o-mini OPENROUTER_API_KEY=sk-or-... uv run agent.py &quot;...&quot;
 </code></pre>
-<p>The root <code>pyproject.toml</code> declares Python 3.11+ and the project dependencies;
-<code>uv run</code> installs them into the project environment when needed. The app can be
-launched from <code>src/</code> as shown above, but <code>WORKDIR</code> is anchored to the repository
+<p>The root <code>pyproject.toml</code> declares Python 3.11+ and the project dependencies.
+<code>uv run</code> installs them into the project environment when needed. You can launch
+the app from <code>src/</code>, as shown above. <code>WORKDIR</code> is anchored to the repository
 root, so generated files and shell commands always use root-level <code>work/</code>.
 If no request is supplied on the command line, <code>ui.py</code> prompts for one and
-displays the selected model name.</p>
+displays the selected model name. After each answer, the app prompts for another
+request and keeps the same conversation history.</p>
 <p>When run without a command-line request, the prompt starts with the active model
 name, for example: <code>[deepseek/deepseek-v4.1-flash] Request ›</code>. It uses the same
 model resolution as the API call: process environment, project-root <code>.env</code>,
-then the built-in fallback.</p>
+then the built-in fallback. With a command-line request, the agent handles it
+first and then prompts for follow-ups. Enter <code>exit</code> or <code>quit</code> to end the
+conversation; blank requests are ignored.</p>
 <p>Watch the terminal: you'll see the model's text, each <code>tool write_file({...})</code>
 call, the result panels, and the final response. The log makes each loop step
 visible as the app runs.</p>
 <h2 id="chapter-01-usage-metrics-and-tests">Usage metrics and tests</h2>
 <p>Each chat-completions response may include a <code>usage</code> object. <code>agent.py</code> reads
-<code>prompt_tokens</code>, <code>completion_tokens</code>, and <code>cost</code> from that object: prompt and
-completion tokens and cost are accumulated across model calls, while the latest
-prompt-token count is used as the current context estimate. If a response omits
-usage fields, the app keeps the last available values. The context limit is not
-assumed; the footer shows a percentage only if the response provides
-<code>context_limit</code>.</p>
+<code>prompt_tokens</code>, <code>completion_tokens</code>, and <code>cost</code> from it. Prompt and completion
+tokens and cost accumulate across model calls. The latest prompt-token count is
+the current context estimate. If a response omits usage fields, the app keeps
+the last available values. The footer does not assume a context limit. It shows
+a percentage only when the response provides <code>context_limit</code>.</p>
 <p>The tests live in the root <code>tests/</code> directory and use Python's standard-library
 <code>unittest</code>.
-They capture Rich output and replace the network call with a fixed response, so
-the suite does not make an OpenRouter request or require an API key. From the
-repository root, run them with the project environment:</p>
+They capture Rich output and replace the network call with a fixed response.
+The suite therefore makes no OpenRouter request and requires no API key. From
+the repository root, run it with the project environment:</p>
 <pre><code class="language-sh">uv run python -m unittest discover -s tests -v
 </code></pre>
 <hr>
@@ -575,8 +585,11 @@ tool result that is sent back to the model. That keeps the model/tool protocol
 in one trustworthy place: the host loop.</p>
 <hr>
 <h2 id="chapter-02-the-hook-contract-in-src-lifecycle-py">The hook contract in <code>src/lifecycle.py</code></h2>
-<p><code>lifecycle.py</code> contains a small base class. Every method is a no-op, so a
-subclass only overrides the callbacks it needs:</p>
+<p><code>lifecycle.py</code> contains a small base class. On Windows, its session-start hook
+plays <code>%WINDIR%\Media\Windows Logon.wav</code> asynchronously when the file exists.
+Other methods are no-ops by default, so a subclass only overrides the callbacks
+it needs. The default <code>SandboxAuditHooks</code> calls the base session-start hook
+before writing its session log entry.</p>
 <pre><code class="language-python">class Hooks:
     def before_tool_execute(self, agent, tool_name, arguments):
         &quot;&quot;&quot;Called before a requested tool is executed.&quot;&quot;&quot;
@@ -632,12 +645,12 @@ subclass only overrides the callbacks it needs:</p>
 <tbody>
 <tr>
 <td><code>on_session_start</code></td>
-<td>The command-line session starts.</td>
+<td>The interactive conversation starts; on Windows, the base hook plays Windows Logon.wav when present.</td>
 <td>None</td>
 </tr>
 <tr>
 <td><code>on_session_stop</code></td>
-<td>The command-line session stops.</td>
+<td>The interactive conversation ends.</td>
 <td>None</td>
 </tr>
 <tr>

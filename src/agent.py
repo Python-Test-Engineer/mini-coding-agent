@@ -9,6 +9,9 @@ LLM calls go to OpenRouter. Settings are loaded from the repository-root .env;
 explicit process environment variables take precedence.
 
 Run:  cd src && uv run agent.py "write a hello world script and run it"
+
+After each answer, the app prompts for a follow-up and keeps the conversation
+history. Type "exit" or "quit" to end the session.
 """
 
 from __future__ import annotations
@@ -219,6 +222,17 @@ def _accumulate_usage(metrics: dict, usage: dict) -> None:
         metrics["context_limit"] = int(context_limit)
 
 
+def _new_metrics() -> dict:
+    """Create usage totals shared by all requests in one session."""
+    return {
+        "last_input_tokens": 0,
+        "context_limit": None,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "total_cost": 0.0,
+    }
+
+
 @dataclass
 class AgentContext:
     """State that lifecycle callbacks may inspect during one agent turn."""
@@ -286,23 +300,20 @@ def agent_loop(
     prompt: str,
     max_steps: int = 8,
     lifecycle_hooks: Hooks | None = None,
+    messages: list[dict] | None = None,
+    metrics: dict[str, Any] | None = None,
 ) -> None:
-    """Run one request through the agent, notifying optional lifecycle hooks."""
+    """Run one request, optionally extending a longer conversation history."""
     active_hooks = lifecycle_hooks if lifecycle_hooks is not None else hooks
     ui.show_start(prompt)
-    # Messages are the shared conversation state sent again on every model call.
-    metrics = {
-        "last_input_tokens": 0,
-        "context_limit": None,
-        "total_input_tokens": 0,
-        "total_output_tokens": 0,
-        "total_cost": 0.0,
-    }
+    # Reuse these objects between turns so follow-ups retain history and
+    # lifecycle hooks can inspect the same session-wide usage totals.
+    if messages is None:
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if metrics is None:
+        metrics = _new_metrics()
+    messages.append({"role": "user", "content": prompt})
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": prompt},
-    ]
     context = AgentContext(prompt, messages, metrics, ui, WORKSPACE)
     ui.show_sandbox_status("local_runner", "writes: work/ and logs/; no host shell")
     _call_hook(active_hooks, "before_input", context, prompt, detail=f"{len(prompt)} characters")
@@ -335,6 +346,8 @@ def agent_loop(
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
             output = msg.get("content") or ""
+            # Save the final response so the user's next turn has context.
+            messages.append(msg)
             _call_hook(active_hooks, "after_loop", context, output, detail="final response received")
             _call_hook(active_hooks, "after_input", context, prompt, output, detail="request complete")
             ui.blank_line()
@@ -392,16 +405,45 @@ def agent_loop(
     ui.show_max_steps(metrics)
 
 
-if __name__ == "__main__":
-    # A command-line request skips the prompt; without one, ask interactively.
-    prompt = " ".join(sys.argv[1:]).strip()
-    if not prompt:
-        prompt = ui.prompt(_model()).strip()
-    # A command-line run is a short session containing one agent turn.
-    session_context = AgentContext(prompt, [], {}, ui, WORKSPACE)
-    _call_hook(hooks, "on_session_start", session_context, detail="command-line session")
+def _read_prompt() -> str | None:
+    """Read one user request, returning ``None`` when input is closed."""
     try:
-        agent_loop(prompt)
+        return ui.prompt(_model()).strip()
+    except (EOFError, KeyboardInterrupt):
+        # EOF (for example, piped input ending) and Ctrl+C both end cleanly.
+        ui.blank_line()
+        return None
+
+
+def main() -> None:
+    """Run one interactive session, accepting follow-up requests until exit."""
+    # A command-line request starts the session; otherwise ask for its first turn.
+    prompt = " ".join(sys.argv[1:]).strip()
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    metrics = _new_metrics()
+    session_context = AgentContext(prompt or "", messages, metrics, ui, WORKSPACE)
+    _call_hook(hooks, "on_session_start", session_context, detail="interactive session")
+    ui.console.print("Type 'exit' or 'quit' to end the conversation.")
+    try:
+        if not prompt:
+            prompt = _read_prompt()
+
+        while prompt is not None:
+            # Ignore empty lines and let the user keep entering requests.
+            if not prompt:
+                prompt = _read_prompt()
+                continue
+            if prompt.lower() in {"exit", "quit"}:
+                break
+
+            # Keep the session context current while each turn gets its own hook context.
+            session_context.request = prompt
+            agent_loop(prompt, messages=messages, metrics=metrics)
+            prompt = _read_prompt()
     finally:
-        _call_hook(hooks, "on_session_stop", session_context, detail="command-line session")
+        _call_hook(hooks, "on_session_stop", session_context, detail="interactive session")
         ui.show_sandbox_status("session_stopped", "constrained local runner stopped")
+
+
+if __name__ == "__main__":
+    main()

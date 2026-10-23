@@ -1,31 +1,53 @@
 """Extension points for observing an agent turn.
 
 Subclass :class:`Hooks` and override the callbacks that are useful to your
-application.  Callbacks receive the turn context as their first argument, so
-they can inspect the request, messages, current step, and usage metrics
-without the hook module depending on the agent or UI implementation.
+application. Callbacks receive an agent context as their first argument, so
+they can inspect the current request or session, message history, model step,
+and usage metrics without this module depending on the agent implementation.
 """
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
 from typing import Any
 
 
 class Hooks:
     """Base class for optional agent lifecycle callbacks.
 
-    Every callback is intentionally a no-op.  This lets a workshop participant
-    implement only the events they need, for example to record tool use or
-    collect model-usage metrics.  ``agent`` is the turn context supplied by
-    ``agent.py``; its public attributes are ``request``, ``messages``,
-    ``metrics``, and ``step``.
+    Callbacks are no-ops by default, except session start plays the Windows
+    logon sound when its WAV file is available. This lets a workshop
+    participant implement only the other events they need, for example to
+    record tool use or collect model-usage metrics. ``agent`` is the turn
+    request or session context supplied by ``agent.py``; its public attributes
+    are ``request``, ``messages``, ``metrics``, and ``step``.
     """
 
-    # A process can contain several turns.  The command-line application calls
-    # these once around its single turn; an interactive REPL could reuse them
-    # around its longer-lived session.
+    # A session can contain several user turns. The command-line application
+    # calls these once around the complete interactive conversation.
     def on_session_start(self, agent: Any) -> None:
-        """Called when an agent session begins."""
+        """Play the Windows logon WAV when an agent session begins."""
+        if sys.platform != "win32":
+            return
+
+        # Use the standard Windows media folder and keep this hook non-blocking.
+        windows_dir = Path(os.environ.get("WINDIR", r"C:\Windows"))
+        logon_sound = windows_dir / "Media" / "Windows Logon.wav"
+        if not logon_sound.is_file():
+            return
+
+        try:
+            import winsound
+
+            winsound.PlaySound(
+                str(logon_sound),
+                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT,
+            )
+        except (OSError, RuntimeError):
+            # Missing audio devices or inaccessible files should not stop a session.
+            return
 
     def on_session_stop(self, agent: Any) -> None:
         """Called when an agent session ends."""
