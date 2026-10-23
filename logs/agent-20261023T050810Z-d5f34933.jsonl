@@ -1,0 +1,10 @@
+{"detail": "command-line session", "event": "lifecycle.on_session_start", "monotonic_seconds": 3634.1960483, "recorded_at": "2026-10-23T05:08:20.232540+00:00", "step": 0}
+{"detail": "constrained local runner started", "event": "session_started", "monotonic_seconds": 3634.1975256, "recorded_at": "2026-10-23T05:08:20.234014+00:00", "step": null}
+{"detail": "10 characters", "event": "lifecycle.before_input", "monotonic_seconds": 3634.2039702, "recorded_at": "2026-10-23T05:08:20.240455+00:00", "step": 0}
+{"detail": "waiting for a model response", "event": "lifecycle.before_loop", "monotonic_seconds": 3634.2052331, "recorded_at": "2026-10-23T05:08:20.241719+00:00", "step": 0}
+{"detail": "step 1 - 2 messages", "event": "lifecycle.before_brain_request", "monotonic_seconds": 3634.2067769, "recorded_at": "2026-10-23T05:08:20.243262+00:00", "step": 1}
+{"detail": "step 1 - 0 tool call(s)", "event": "lifecycle.after_brain_response", "monotonic_seconds": 3636.8718863, "recorded_at": "2026-10-23T05:08:22.908371+00:00", "step": 1}
+{"detail": "final response received", "event": "lifecycle.after_loop", "monotonic_seconds": 3636.874537, "recorded_at": "2026-10-23T05:08:22.911024+00:00", "step": 1}
+{"detail": "request complete", "event": "lifecycle.after_input", "monotonic_seconds": 3636.8758218, "recorded_at": "2026-10-23T05:08:22.912307+00:00", "step": 1}
+{"detail": "command-line session", "event": "lifecycle.on_session_stop", "monotonic_seconds": 3636.8791242, "recorded_at": "2026-10-23T05:08:22.915612+00:00", "step": 0}
+{"detail": "constrained local runner stopped", "event": "session_stopped", "monotonic_seconds": 3636.8803502, "recorded_at": "2026-10-23T05:08:22.916835+00:00", "step": null}

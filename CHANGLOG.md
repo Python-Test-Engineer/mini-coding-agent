@@ -67,3 +67,6 @@ forward in a later commit.
   current combined page is `BOOK/book.html`.
 - Earlier entries retain the paths that existed when those branch changes were
   made; use the current paths for new changes.
+- Removed the ignore rule for generated `logs/*.jsonl` files so CH02 audit logs
+  stay visible in the checkout, matching the log files present on the CH01
+  snapshot. The JSONL logging implementation was already present in CH02.
