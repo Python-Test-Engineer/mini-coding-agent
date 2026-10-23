@@ -1,6 +1,6 @@
 .env
 OPENROUTER.txt
-
+logs/
 
 # --- Python / uv ---
 .venv/
