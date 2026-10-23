@@ -24,7 +24,8 @@
       --serif: Georgia, "Times New Roman", serif;
     }
     * { box-sizing: border-box; }
-    html { font-size: 125%; scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    /* Keep anchor targets below the sticky reader controls when navigating from the TOC. */
+    html { font-size: 125%; scroll-behavior: smooth; scroll-padding-top: 5rem; }
     body {
       margin: 0;
       background: var(--paper);
