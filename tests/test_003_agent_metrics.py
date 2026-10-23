@@ -15,12 +15,12 @@ from ui import UI
 
 
 class UsageMetricTests(unittest.TestCase):
-    def test_work_directory_is_anchored_at_repository_root(self):
+    def test_003_work_directory_is_anchored_at_repository_root(self):
         expected = Path(agent.__file__).resolve().parent.parent / "work"
 
         self.assertEqual(agent.WORKDIR, expected)
 
-    def test_accumulates_input_output_and_cost_across_responses(self):
+    def test_004_accumulates_input_output_and_cost_across_responses(self):
         metrics = {
             "last_input_tokens": 0,
             "context_limit": None,
@@ -42,7 +42,7 @@ class UsageMetricTests(unittest.TestCase):
         self.assertEqual(metrics["total_output_tokens"], 5)
         self.assertAlmostEqual(metrics["total_cost"], 0.03)
 
-    def test_missing_usage_fields_leave_totals_unchanged(self):
+    def test_005_missing_usage_fields_leave_totals_unchanged(self):
         metrics = {
             "last_input_tokens": 7,
             "context_limit": None,
@@ -59,7 +59,7 @@ class UsageMetricTests(unittest.TestCase):
         self.assertEqual(metrics["total_output_tokens"], 4)
         self.assertAlmostEqual(metrics["total_cost"], 0.02)
 
-    def test_agent_passes_response_usage_to_the_footer(self):
+    def test_006_agent_passes_response_usage_to_the_footer(self):
         console = Console(record=True, width=120)
         reply = {
             "choices": [{"message": {"content": "Finished", "tool_calls": []}}],
