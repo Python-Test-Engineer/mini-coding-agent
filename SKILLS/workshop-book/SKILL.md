@@ -9,8 +9,8 @@ Use this guide when editing a chapter or building the combined book page.
 
 ## Source and content
 
-- Treat `CHXX.md` files in this folder as the lesson source and combine them in
-  filename order.
+- Treat `BOOK/CHXX.md` files as the lesson source and combine them in filename
+  order.
 - Keep every heading, paragraph, list, table, and code block in the generated
   HTML. Add navigation and visual styling without silently summarizing or
   rewriting lesson content.

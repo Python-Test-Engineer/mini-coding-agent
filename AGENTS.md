@@ -4,9 +4,9 @@
 
 To create a step byn step workbook for ma workshop mof intermediate Python developers to build an Agentic coding harness.
 
-Each chapter is given md file in EXPLAINERS with a filename of CHXX.md with XX being 01, 02...
+Each chapter is given an md file in BOOK with a filename of CHXX.md with XX being 01, 02... and this numerical sequence reflecting the progression of the book.
 
-These are combined and converted into BPPK/book.html
+These are combined and converted into BOOK/book.html
 
 Each chapter has its own branch to allow students to have the code for each chapter as we progress throught he workshop.
 
