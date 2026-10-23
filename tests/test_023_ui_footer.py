@@ -13,7 +13,7 @@ from ui import UI
 
 
 class FooterIntegrationTests(unittest.TestCase):
-    def test_done_screen_displays_footer(self):
+    def test_023_done_screen_displays_footer(self):
         # Recording lets the test inspect Rich output without a real terminal.
         console = Console(record=True, width=100)
         ui = UI(console=console)
@@ -25,7 +25,7 @@ class FooterIntegrationTests(unittest.TestCase):
         self.assertIn("Usage:", output)
         self.assertIn("Cost so far:", output)
 
-    def test_max_steps_screen_displays_footer(self):
+    def test_024_max_steps_screen_displays_footer(self):
         console = Console(record=True, width=100)
         ui = UI(console=console)
 
@@ -33,7 +33,7 @@ class FooterIntegrationTests(unittest.TestCase):
 
         self.assertIn("Context:", console.export_text())
 
-    def test_done_screen_displays_passed_metrics(self):
+    def test_025_done_screen_displays_passed_metrics(self):
         console = Console(record=True, width=120)
         ui = UI(console=console)
         metrics = {
@@ -51,7 +51,7 @@ class FooterIntegrationTests(unittest.TestCase):
         self.assertIn("Usage: 2,345 in / 456 out", output)
         self.assertIn("Cost so far: $0.123456", output)
 
-    def test_context_usage_shows_percentage_when_limit_is_known(self):
+    def test_026_context_usage_shows_percentage_when_limit_is_known(self):
         console = Console(record=True, width=120)
         ui = UI(console=console)
         metrics = {

@@ -13,7 +13,7 @@ import agent
 
 
 class EnvironmentConfigTests(unittest.TestCase):
-    def test_loads_credentials_and_model_from_project_env_file(self):
+    def test_001_loads_credentials_and_model_from_project_env_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / ".env").write_text(
@@ -28,7 +28,7 @@ class EnvironmentConfigTests(unittest.TestCase):
                 self.assertEqual(agent._api_key(), "dotenv-test-key")
                 self.assertEqual(agent._model(), "dotenv-test-model")
 
-    def test_environment_variables_override_project_env_file(self):
+    def test_002_environment_variables_override_project_env_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             (root / ".env").write_text(

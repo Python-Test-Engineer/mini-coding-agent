@@ -32,17 +32,17 @@ class SandboxWorkspaceTests(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_writes_and_reads_nested_relative_paths(self):
+    def test_009_writes_and_reads_nested_relative_paths(self):
         self.workspace.write_file("nested/hello.txt", "hello")
 
         self.assertEqual(self.workspace.read_file("nested/hello.txt"), "hello")
         self.assertTrue((self.workspace.root / "nested" / "hello.txt").is_file())
 
-    def test_rejects_parent_traversal(self):
+    def test_010_rejects_parent_traversal(self):
         with self.assertRaisesRegex(SandboxPathError, "work or logs"):
             self.workspace.write_file("../outside.txt", "blocked")
 
-    def test_rejects_write_and_edit_outside_work_or_logs(self):
+    def test_011_rejects_write_and_edit_outside_work_or_logs(self):
         outside = Path(self.temp_dir.name) / "outside.txt"
         outside.write_text("original", encoding="utf-8")
 
@@ -54,7 +54,7 @@ class SandboxWorkspaceTests(unittest.TestCase):
         self.assertEqual(outside.read_text(encoding="utf-8"), "original")
         self.assertFalse(hasattr(self.workspace, "delete_file"))
 
-    def test_allows_logs_and_an_explicit_external_read(self):
+    def test_012_allows_logs_and_an_explicit_external_read(self):
         self.workspace.write_file("logs/agent-note.txt", "event note")
         outside = Path(self.temp_dir.name) / "readable.txt"
         outside.write_text("read only", encoding="utf-8")
@@ -65,7 +65,7 @@ class SandboxWorkspaceTests(unittest.TestCase):
         )
         self.assertEqual(self.workspace.read_file(str(outside)), "read only")
 
-    def test_record_writes_jsonl_events_under_logs(self):
+    def test_013_record_writes_jsonl_events_under_logs(self):
         self.workspace.record("lifecycle.before_loop", "waiting", step=1)
 
         lines = self.workspace.event_log.path.read_text(encoding="utf-8").splitlines()
@@ -88,24 +88,24 @@ class ConstrainedLocalRunnerTests(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_rejects_shell_operators_before_starting_a_process(self):
+    def test_014_rejects_shell_operators_before_starting_a_process(self):
         with patch("sandbox.subprocess.run") as run_process:
             with self.assertRaisesRegex(SandboxCommandError, "shell operators"):
                 self.runner.run("python script.py; whoami")
 
         run_process.assert_not_called()
 
-    def test_rejects_commands_outside_the_allowlist(self):
+    def test_015_rejects_commands_outside_the_allowlist(self):
         with self.assertRaisesRegex(SandboxCommandError, "not allowed"):
             self.runner.run("git status")
 
-    def test_rejects_parent_paths_and_inline_python(self):
+    def test_016_rejects_parent_paths_and_inline_python(self):
         with self.assertRaisesRegex(SandboxCommandError, "paths must stay"):
             self.runner.run("python ../outside.py")
         with self.assertRaisesRegex(SandboxCommandError, "inline Python"):
             self.runner.run('python -c "print(1)"')
 
-    def test_uses_no_shell_and_bounds_output(self):
+    def test_017_uses_no_shell_and_bounds_output(self):
         completed = subprocess.CompletedProcess(
             ["python", "script.py"], 0, stdout="123456789", stderr="error text"
         )
@@ -117,7 +117,7 @@ class ConstrainedLocalRunnerTests(unittest.TestCase):
         self.assertEqual(run_process.call_args.kwargs["shell"], False)
         self.assertEqual(run_process.call_args.kwargs["cwd"], self.workspace.root)
 
-    def test_turns_a_timeout_into_a_policy_error(self):
+    def test_018_turns_a_timeout_into_a_policy_error(self):
         with patch(
             "sandbox.subprocess.run",
             side_effect=subprocess.TimeoutExpired(["python"], 0.1),
@@ -127,7 +127,7 @@ class ConstrainedLocalRunnerTests(unittest.TestCase):
 
 
 class SandboxAuditHookTests(unittest.TestCase):
-    def test_records_tool_request_result_and_host_error(self):
+    def test_019_records_tool_request_result_and_host_error(self):
         workspace = SimpleNamespace(events=[], record=lambda *args: workspace.events.append(args))
         context = SimpleNamespace(workspace=workspace, step=3)
         hooks = SandboxAuditHooks()
@@ -142,7 +142,7 @@ class SandboxAuditHookTests(unittest.TestCase):
 
 
 class SandboxAgentIntegrationTests(unittest.TestCase):
-    def test_agent_successfully_writes_to_an_allowed_workspace_path(self):
+    def test_020_agent_successfully_writes_to_an_allowed_workspace_path(self):
         console = Console(record=True, width=120)
         tool_reply = {
             "choices": [
@@ -182,7 +182,7 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
             )
             self.assertIn("Created work/notes/hello.txt", console.export_text())
 
-    def test_path_rejection_is_returned_to_the_model_and_shown_by_the_ui(self):
+    def test_021_path_rejection_is_returned_to_the_model_and_shown_by_the_ui(self):
         console = Console(record=True, width=120)
         tool_reply = {
             "choices": [
@@ -214,7 +214,7 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
         self.assertIn("write/edit path must stay in work or logs", output)
         self.assertIn("Finished", output)
 
-    def test_agent_blocks_external_write_edit_and_delete_requests(self):
+    def test_022_agent_blocks_external_write_edit_and_delete_requests(self):
         console = Console(record=True, width=120)
         protected_file = Path(agent.ROOT_DIR) / "README.md"
         original = protected_file.read_text(encoding="utf-8")

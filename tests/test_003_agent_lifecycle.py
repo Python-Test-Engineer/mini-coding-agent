@@ -39,7 +39,7 @@ class RecordingHooks(Hooks):
 
 
 class LifecycleIntegrationTests(unittest.TestCase):
-    def test_hooks_receive_turn_context_in_lifecycle_order(self):
+    def test_003_hooks_receive_turn_context_in_lifecycle_order(self):
         recorded = RecordingHooks()
         console = Console(record=True, width=120)
         reply = {"choices": [{"message": {"content": "Finished", "tool_calls": []}}]}
@@ -68,7 +68,7 @@ class LifecycleIntegrationTests(unittest.TestCase):
         self.assertIn("model response", output)
         self.assertIn("agent loop finished", output)
 
-    def test_a_failing_hook_is_reported_without_stopping_the_agent(self):
+    def test_004_a_failing_hook_is_reported_without_stopping_the_agent(self):
         class BrokenHooks(Hooks):
             def before_loop(self, context):
                 raise RuntimeError("hook problem")
