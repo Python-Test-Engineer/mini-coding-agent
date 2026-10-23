@@ -337,12 +337,19 @@ assistant  &lt;final answer, no tool_calls&gt;    → loop ends
 <li><strong>Tool results carry an <code>id</code>.</strong> Each assistant <code>tool_call</code> has an <code>id</code>; the
 host echoes it on the corresponding <code>tool</code> message so the model can pair them.</li>
 <li><strong>The loop ends when the model returns no <code>tool_calls</code>.</strong> The app also stops
-after at most eight model-response iterations (<code>max_steps=8</code>), even if the
+after at most eight model-response iterations for that request (<code>max_steps=8</code>), even if the
 model keeps requesting tools.</li>
 </ul>
 <p>The HTML &quot;memory&quot; demo stores chat text in <code>localStorage</code>. Here, the <em>entire</em>
 tool conversation is the working memory. The app resends it each iteration, so
 the agent can remember what it wrote earlier.</p>
+<p>That working memory now spans follow-up requests too. When the model gives a
+final answer, <code>agent_loop()</code> adds it to the history. The outer conversation loop
+then asks for another request and adds it as a new <code>user</code> message. Each
+follow-up can refer to earlier requests, answers, and tool results. The
+eight-step limit applies to each request; usage totals accumulate across the
+interactive conversation. Type <code>exit</code> or <code>quit</code> to finish, or end input with
+Ctrl+C or EOF.</p>
 <hr>
 <h2 id="configuration-the-api-call">Configuration &amp; the API call</h2>
 <ul>
@@ -399,7 +406,7 @@ unsupported Rich style can prevent the UI from starting.</p>
 <h2 id="running-it">Running it</h2>
 <pre><code class="language-sh">cd src
 uv run agent.py &quot;write a hello world script and run it&quot;
-# or: pass nothing for an interactive prompt
+# or: omit the request to start with an interactive prompt
 # or override: MODEL=openai/gpt-4o-mini OPENROUTER_API_KEY=sk-or-... uv run agent.py &quot;...&quot;
 </code></pre>
 <p>The root <code>pyproject.toml</code> declares Python 3.11+ and the project dependencies.
@@ -407,11 +414,14 @@ uv run agent.py &quot;write a hello world script and run it&quot;
 the app from <code>src/</code>, as shown above. <code>WORKDIR</code> is anchored to the repository
 root, so generated files and shell commands always use root-level <code>work/</code>.
 If no request is supplied on the command line, <code>ui.py</code> prompts for one and
-displays the selected model name.</p>
+displays the selected model name. After each answer, the app prompts for another
+request and keeps the same conversation history.</p>
 <p>When run without a command-line request, the prompt starts with the active model
 name, for example: <code>[deepseek/deepseek-v4.1-flash] Request ›</code>. It uses the same
 model resolution as the API call: process environment, project-root <code>.env</code>,
-then the built-in fallback.</p>
+then the built-in fallback. With a command-line request, the agent handles it
+first and then prompts for follow-ups. Enter <code>exit</code> or <code>quit</code> to end the
+conversation; blank requests are ignored.</p>
 <p>Watch the terminal: you'll see the model's text, each <code>tool write_file({...})</code>
 call, the result panels, and the final response. The log makes each loop step
 visible as the app runs.</p>

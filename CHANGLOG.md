@@ -88,3 +88,12 @@ forward in a later commit.
   branch-specific book.
 - Matched the text-size controls to the CH02 branch: `Text size`, `A−`, the
   percentage, `A+`, and `Reset`; updated the skill to require this order.
+
+## Working-tree update - follow-up conversation loop
+
+- Updated `BOOK/CH01.md` and the generated `BOOK/book.html` to explain how
+  final answers and follow-up requests stay in the shared message history.
+- Clarified that the eight-step model/tool limit applies to each request, while
+  usage totals accumulate across the interactive conversation.
+- Updated `GUIDE/guide.html` with the multi-turn behavior, including starting
+  with or without a command-line request and ending with `exit` or `quit`.
