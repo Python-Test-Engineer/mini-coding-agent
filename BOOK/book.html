@@ -494,7 +494,7 @@ Hooks receive information about the transition and can react to it.</p>
 <td>Adds the wording, ASCII icons, and styles for lifecycle events.</td>
 </tr>
 <tr>
-<td><code>tests/test_003_agent_lifecycle.py</code></td>
+<td><code>tests/test_004_agent_lifecycle.py</code></td>
 <td>Verifies callback order, context, UI output, and hook-failure isolation.</td>
 </tr>
 <tr>
@@ -502,7 +502,7 @@ Hooks receive information about the transition and can react to it.</p>
 <td>Adds separate read/write path rules, JSONL event logging, and a constrained command runner.</td>
 </tr>
 <tr>
-<td><code>tests/test_009_sandbox.py</code></td>
+<td><code>tests/test_006_sandbox.py</code></td>
 <td>Verifies allowed roots, external reads, event logs, command limits, and agent integration.</td>
 </tr>
 </tbody>
@@ -904,7 +904,7 @@ the same <code>work/</code> and <code>logs/</code> boundary against executed cod
 container or VM with filesystem permissions that restrict the child process.</p>
 <hr>
 <h2 id="chapter-02-tests-for-extension-points">Tests for extension points</h2>
-<p><code>tests/test_003_agent_lifecycle.py</code> uses a <code>RecordingHooks</code> subclass and a mocked
+<p><code>tests/test_004_agent_lifecycle.py</code> uses a <code>RecordingHooks</code> subclass and a mocked
 model reply. It verifies that the callback sequence is ordered correctly:</p>
 <pre><code class="language-text">before_input
 before_brain_request
@@ -918,7 +918,7 @@ and <code>agent loop finished</code>.</p>
 <p>The second test uses a hook whose <code>before_loop()</code> deliberately raises an error.
 The loop still receives the mocked final model response, proving that optional
 extension code cannot stop the core agent merely by failing.</p>
-<p><code>tests/test_009_sandbox.py</code> adds coverage for the host file-tool boundary:</p>
+<p><code>tests/test_006_sandbox.py</code> adds coverage for the host file-tool boundary:</p>
 <ul>
 <li>safe nested workspace files can be written and read;</li>
 <li>writes and edits outside <code>work/</code> and <code>logs/</code> are rejected, while external
@@ -944,14 +944,14 @@ returned to the model as an error, and followed by the final response.</li>
 workspace, plus the current step.</li>
 <li>[ ] Hook errors appear in the terminal but do not stop the agent loop.</li>
 <li>[ ] The UI owns lifecycle text, icons, colours, and trace formatting.</li>
-<li>[ ] <code>tests/test_003_agent_lifecycle.py</code> verifies ordering and failure isolation.</li>
+<li>[ ] <code>tests/test_004_agent_lifecycle.py</code> verifies ordering and failure isolation.</li>
 <li>[ ] <code>SandboxWorkspace</code> enforces the local file path boundary.</li>
 <li>[ ] Lifecycle events are appended as JSONL records under <code>logs/</code>.</li>
 <li>[ ] Reads may use any readable absolute path; writes and edits stay in
 <code>work/</code> or <code>logs/</code>; no delete tool is available.</li>
 <li>[ ] <code>ConstrainedLocalRunner</code> uses an allowlist, no host shell, timeout, and
 bounded output.</li>
-<li>[ ] <code>tests/test_009_sandbox.py</code> verifies the constrained runner and its
+<li>[ ] <code>tests/test_006_sandbox.py</code> verifies the constrained runner and its
 integration with lifecycle hooks and the UI.</li>
 </ul>
 <p>The agent still has the same core ReAct loop from Chapter 01. Chapter 02 makes
