@@ -50,11 +50,12 @@ interactive `main()` function separately calls `on_session_start` and
 
 ### 2.4 How does a model tool call become a Python function call?
 
-`TOOL_SCHEMAS` in `src/agent.py` describes the available tools to the model.
+`TOOL_SCHEMAS` in `src/brain.py` describes the available tools to the model.
 The model returns a tool name and JSON arguments; the agent parses those
-arguments, looks up the name in the `TOOLS` dictionary, and calls that Python
-function. The schema tells the model what it may request, while the Python
-registry determines what the host can actually execute.
+arguments, looks the name up in the tool map that `tools.bind_tools()` built for
+this turn, and calls that Python function. The schema tells the model what it
+may request, while the bound tool functions decide what the host can actually
+execute.
 
 ### 2.5 What happens if a tool or hook raises an exception?
 

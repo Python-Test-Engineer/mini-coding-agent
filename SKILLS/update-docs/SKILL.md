@@ -35,6 +35,12 @@ change. The usual documentation areas are:
 - `PLAN.md`: future work; update only when the plan itself changes.
 - `CHANGLOG.md`: established changelog filename and record of completed work.
 
+`BOOK/book.html` and `GUIDE/guide.html` are hand-maintained HTML mirrors of the
+Markdown lessons; this repository has no generator for them. Mirror every
+chapter or reference edit into the matching HTML section (anchors prefixed
+`chapter-XX-`), keep the table of contents in step, and preserve the files'
+CRLF line endings by editing them as bytes or with `newline=""`.
+
 Update each document whose audience or instructions are affected. Keep names,
 commands, paths, feature descriptions, and safety limits consistent across
 them. Do not copy the same explanation everywhere when a short cross-reference

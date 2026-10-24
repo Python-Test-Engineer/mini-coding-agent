@@ -80,28 +80,27 @@ OUTSIDE_LOCATION_NAMES = frozenset(
 def print_forbidden(detail: str) -> None:
     """Print the red FORBIDDEN banner at the point where it is detected.
 
-    Detection lives in :meth:`SandboxWorkspace.resolve_write_path`, so the
-    banner is printed there instead of in the agent loop. Rich is used when it
-    is available and plain text otherwise, so the message still appears if the
-    demo runs without the workshop dependencies.
+    Detection lives in :meth:`SandboxWorkspace.resolve_write_path`, but the
+    *rendering* belongs to the UI: this default banner asks ``ui.show_forbidden``
+    for the two red lines, so every visible string and colour still comes from
+    ``ui.py`` and ``ui.json``. A host that wants another presentation can pass
+    its own callable to :class:`SandboxWorkspace` instead.
+
+    A fresh UI is built here so the banner still appears on the current
+    ``sys.stdout``, which keeps it capturable by tests and by any host that
+    redirects its own output. Rich is used when it is available and plain text
+    otherwise, so the message still appears if the workshop dependencies are
+    missing.
     """
     try:
-        from rich.console import Console
-        from rich.text import Text
+        # Imported lazily: the UI pulls in Rich, and this module must stay
+        # importable for hosts that only want the path and command policy.
+        from ui import UI
     except ImportError:  # pragma: no cover - Rich is a workshop dependency
         print(f"[FORBIDDEN] {detail}")
         print("[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.")
     else:
-        # A fresh console writes to the current sys.stdout, which keeps the banner
-        # capturable by tests and by any host that redirects its own output.
-        console = Console()
-        console.print(Text(f"[FORBIDDEN] {detail}", style="bold red"))
-        console.print(
-            Text(
-                "[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.",
-                style="bold red",
-            )
-        )
+        UI().show_forbidden(detail)
     # SANDBOX: play the audible alert beside the visible forbidden banner.
     play_forbidden_sound()
 

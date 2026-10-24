@@ -11,6 +11,7 @@ from rich.console import Console
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import agent
+import brain
 from ui import UI
 
 
@@ -30,10 +31,10 @@ class UsageMetricTests(unittest.TestCase):
         }
 
         # Each model reply contributes billable prompt/completion usage.
-        agent._accumulate_usage(
+        brain.accumulate_usage(
             metrics, {"prompt_tokens": 10, "completion_tokens": 3, "cost": 0.01}
         )
-        agent._accumulate_usage(
+        brain.accumulate_usage(
             metrics, {"prompt_tokens": 8, "completion_tokens": 2, "cost": 0.02}
         )
 
@@ -52,7 +53,7 @@ class UsageMetricTests(unittest.TestCase):
         }
 
         # Compatible API providers may omit usage details from a reply.
-        agent._accumulate_usage(metrics, {})
+        brain.accumulate_usage(metrics, {})
 
         self.assertEqual(metrics["last_input_tokens"], 7)
         self.assertEqual(metrics["total_input_tokens"], 12)

@@ -15,8 +15,13 @@ are sent back to the model until it returns a final answer.
   if the file is present.
 - A Rich terminal UI that displays model text, tool calls, and tool results.
 
-The code is in `src/agent.py`; `src/ui.py` and `src/ui.json` configure the
-terminal interface. `src/sandbox.py` contains the path and command policy.
+The code is split by responsibility. `src/agent.py` is the loop: it owns the
+turn context, the hook calls, and the model/tool cycle. `src/brain.py` holds the
+system prompt, the tool schemas, and the OpenRouter request. `src/tools.py`
+holds the four tool functions and `bind_tools()`, which attaches the enforcing
+workspace or runner. `src/sandbox.py` contains the path and command policy,
+`src/lifecycle.py` the callback contract, and `src/agent_logging.py` the JSONL
+audit trail. `src/ui.py` and `src/ui.json` own every line the program prints.
 `src/demo-prompt.md` contains an example request. Generated files and commands
 use the repository-root `work/` directory, regardless of where the agent is
 launched. Lifecycle and sandbox records are written as JSONL files under
@@ -94,8 +99,9 @@ but reject write/edit targets outside repository-root `work/` and `logs/`.
 expands `~` and environment variables, then refuses anything outside the two
 roots. Home- and system-relative requests count as outside, so `Desktop/notes.txt`,
 `~/Desktop/notes.txt`, and `%USERPROFILE%\notes.txt` are rejected instead of
-being created under `work/`. A blocked write or edit is fatal: it prints a red
-`[FORBIDDEN]` banner and exits with status `2` (`agent.FORBIDDEN_EXIT_CODE`)
+being created under `work/`. A blocked write or edit is fatal: the sandbox asks
+`UI.show_forbidden()` for a red `[FORBIDDEN]` banner (wording and colour in
+`src/ui.json`) and exits with status `2` (`agent.FORBIDDEN_EXIT_CODE`)
 instead of letting the model retry the same request with another path. On
 Windows, sandbox policy violations play `C:\Windows\Media\tada.wav`; rejected
 commands are still returned to the model as normal `ERROR: ...` results.

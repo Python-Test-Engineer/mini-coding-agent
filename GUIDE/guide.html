@@ -1081,8 +1081,9 @@
           <div>
             <div class="section-kicker">The host's capabilities</div>
             <h2>Four functions. One small toolbox.</h2>
-            <p class="section-intro">An agent can only do what its host exposes. The tool registry in
-              <code>agent.py</code> maps the model's requested name to a Python function.
+            <p class="section-intro">An agent can only do what its host exposes. The tool registry maps the model's
+              requested name to a Python function: Chapter 01 kept it in <code>agent.py</code>, and Chapter 02 moved it to
+              <code>src/tools.py</code>, where <code>bind_tools()</code> attaches the enforcing workspace or runner.
             </p>
           </div>
         </div>
@@ -1139,8 +1140,8 @@
                 fields.</span></li>
             <li><strong>Receive a proposal</strong><span>The assistant response names a tool and provides JSON
                 arguments.</span></li>
-            <li><strong>Dispatch in Python</strong><span>The host decodes arguments and calls the matching function in
-                <code>TOOLS</code>.</span></li>
+            <li><strong>Dispatch in Python</strong><span>The host decodes arguments and calls the matching entry in the tool
+                map built by <code>tools.bind_tools()</code>.</span></li>
             <li><strong>Return the result</strong><span>The host adds a <code>role: "tool"</code> message with the
                 matching call ID.</span></li>
           </ol>
@@ -1309,6 +1310,9 @@ uv run agent.py "write a hello world script and run it"</code></pre>
         <h1>Hooks make the loop <em>observable.</em></h1>
         <p class="dek">A hook is a named callback at a useful boundary in the agent loop. It records what the host is
           doing without taking ownership of model requests, tool execution, or terminal rendering.</p>
+        <p class="dek">Chapter 01 kept the model call and the tools inside <code>agent.py</code>. This chapter moves the model
+          call into <code>src/brain.py</code> and the four tools into <code>src/tools.py</code>, leaving
+          <code>src/agent.py</code> as the loop that calls them.</p>
         <div class="learning-row" aria-label="Chapter learning goals">
           <div class="learning-item"><b>01</b><span>Place callbacks around clear lifecycle boundaries.</span></div>
           <div class="learning-item"><b>02</b><span>Inspect a turn through a small, documented context object.</span></div>
@@ -1433,6 +1437,8 @@ uv run agent.py "write a hello world script and run it"</code></pre>
               <tr><td><code>styles.lifecycle_events</code></td><td>The Rich colour for each event: model calls are magenta and tools are yellow.</td></tr>
               <tr><td><code>show_lifecycle_event()</code></td><td>Builds the compact trace line and limits details to 100 characters.</td></tr>
               <tr><td><code>show_hook_error()</code></td><td>Displays a configured error panel when optional extension code raises an exception.</td></tr>
+              <tr><td><code>show_forbidden()</code></td><td>Renders the red <code>[FORBIDDEN]</code> banner the sandbox asks for when a write or edit target is outside the approved roots.</td></tr>
+              <tr><td><code>show_hint()</code></td><td>Renders the session hint ("type <code>exit</code> or <code>quit</code>") from <code>ui.json</code> when the interactive session starts.</td></tr>
             </tbody>
           </table>
           <aside class="callout">
@@ -1499,8 +1505,9 @@ logs/agent-...jsonl
 {"event":"lifecycle.before_tool_execute","step":1,...}
 
 process exit status: 2</code></pre>
-          <p class="section-intro"><code>SandboxWorkspace.resolve_write_path()</code> decides this and prints the red
-            banner itself, then raises <code>SandboxForbiddenError</code>. The request is fatal, not a tool error the
+          <p class="section-intro"><code>SandboxWorkspace.resolve_write_path()</code> decides this and asks the
+            <code>UI.show_forbidden()</code> method for the red banner (the two lines and their
+            colour come from <code>ui.json</code>), then raises <code>SandboxForbiddenError</code>. The request is fatal, not a tool error the
             model may retry: <code>agent_loop()</code> raises <code>SystemExit(agent.FORBIDDEN_EXIT_CODE)</code> after the
             turn hooks have recorded the blocked request, so the process stops before the model can try the same write
             somewhere else. Home- and system-relative paths (<code>Desktop/x</code>, <code>~/Desktop/x</code>,
@@ -1509,8 +1516,10 @@ process exit status: 2</code></pre>
             as ordinary <code>ERROR: ...</code> results.</p>
         </div>
         <p class="section-intro"><code>UI.show_sandbox_status()</code> formats these status lines from the
-          <code>sandbox_events</code> labels and styles in <code>ui.json</code>. The sandbox module itself does not
-          print terminal formatting; every lifecycle transition is appended as JSONL under <code>logs/</code>.</p>
+          <code>sandbox_events</code> labels and styles in <code>ui.json</code>, and <code>UI.show_forbidden()</code>
+          renders the red banner for a blocked write. No module prints terminal formatting of its own: every visible
+          line in the app comes from <code>src/ui.py</code> and <code>src/ui.json</code>. Every lifecycle transition is
+          appended as JSONL under <code>logs/</code>.</p>
       </section>
 
       <section class="lesson-section" id="hooks-tests">

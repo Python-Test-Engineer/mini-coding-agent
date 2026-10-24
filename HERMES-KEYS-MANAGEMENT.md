@@ -14,7 +14,7 @@ setx OPENAI_API_KEY "sk-..."
 ```powershell
 hermes config                                   # view config
 hermes config edit                              # edit config.yaml
-hermes config set OPENROUTER_API_KEY sk-or-...  # set/replace key (saves to .env)
+hermes config set OPENROUTER_API_KEY sk-or-v # set/replace key (saves to .env)
 hermes model                                    # interactive provider/model setup
 hermes config check                             # check for missing options
 ```

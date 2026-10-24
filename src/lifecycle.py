@@ -4,6 +4,10 @@ Subclass :class:`Hooks` and override the callbacks that are useful to your
 application. Callbacks receive an agent context as their first argument, so
 they can inspect the current request or session, message history, model step,
 and usage metrics without this module depending on the agent implementation.
+
+Hooks observe; they do not render. A callback that wants to say something asks
+``agent.ui`` to draw it, which keeps every visible line in ``ui.py`` and
+``ui.json``.
 """
 
 from __future__ import annotations
@@ -32,9 +36,10 @@ class Hooks:
         if sys.platform != "win32":
             return
 
-        # Use the standard Windows media folder and keep this hook non-blocking.
+        # Use the standard Windows media folder and keep this hook non-blocking
+        # so the first prompt appears even if audio starts slowly.
         windows_dir = Path(os.environ.get("WINDIR", r"C:\Windows"))
-        logon_sound = windows_dir / "Media" / "C:\Windows\Media\ding.wav"
+        logon_sound = windows_dir / "Media" / "Windows Logon.wav"
         if not logon_sound.is_file():
             return
 

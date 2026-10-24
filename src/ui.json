@@ -11,6 +11,9 @@
     "done": "done",
     "max_steps": "max steps reached",
     "hook_error": "lifecycle hook error",
+    "hint": "Type 'exit' or 'quit' to end the conversation.",
+    "forbidden": "[FORBIDDEN] {detail}",
+    "forbidden_policy": "[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.",
     "sandbox_prefix": "sandbox",
     "sandbox_events": {
       "local_runner": "[box] constrained local runner",
@@ -57,6 +60,9 @@
     "max_steps": "bold red",
     "hook_error_title": "bold red",
     "hook_error_border": "red",
+    "hint": "dim",
+    "forbidden": "bold red",
+    "forbidden_policy": "bold red",
     "sandbox_prefix": "dim italic",
     "sandbox_detail": "dim",
     "sandbox_events": {

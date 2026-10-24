@@ -2,8 +2,10 @@
 
 This guide explains how the Chapter 02 agent moves a request through its host
 loop, lifecycle hooks, sandbox checks, event log, and terminal UI. It follows
-the implementation in `src/agent.py`, `src/lifecycle.py`, `src/sandbox.py`,
-`src/ui.py`, and `src/ui.json`.
+the implementation in `src/agent.py` (the loop), `src/brain.py` (the model
+call and tool schemas), `src/tools.py` (the host tools), `src/lifecycle.py`
+(the hook contract), `src/sandbox.py` (policy), `src/ui.py` and `src/ui.json`
+(presentation), and `src/agent_logging.py` (the JSONL audit trail).
 
 The final section turns those relationships into a scene outline for a future
 HTML animation. Each scene can become a highlighted component, an animated
@@ -13,13 +15,18 @@ event, and a short explanation.
 
 | Part | Main files | Responsibility |
 | --- | --- | --- |
-| Agent host | `src/agent.py` | Owns the request loop, calls the model, selects tools, catches errors, and calls UI methods. |
+| Agent host | `src/agent.py` | Owns the request loop, decides when each step happens, selects tools, catches errors, and calls UI methods. |
+| Model access | `src/brain.py` | Holds the system prompt and tool schemas, makes the OpenRouter request, and totals the usage each reply reports. |
+| Host tools | `src/tools.py` | The four tool functions, plus `bind_tools()` which attaches the enforcing workspace or runner. |
 | Lifecycle hooks | `src/lifecycle.py`, `src/sandbox.py` | Observe session and turn transitions. `SandboxAuditHooks` adds audit entries. |
 | Sandbox policy | `src/sandbox.py` | Checks file paths and command arguments where host operations run. |
-| Terminal UI | `src/ui.py`, `src/ui.json` | Formats lifecycle traces, sandbox statuses, tool calls, results, and errors. |
+| Terminal UI | `src/ui.py`, `src/ui.json` | Formats lifecycle traces, sandbox statuses, the `[FORBIDDEN]` banner, the session hint, tool calls, results, and errors. |
+| Audit trail | `src/agent_logging.py` | Appends one JSON object per event to a generated `.jsonl` file under `logs/`. |
 
-The agent is the coordinator. Hooks observe its transitions, the sandbox checks
-the operations, and the UI renders information the host sends to it.
+The agent is the coordinator. `brain.py` is the only module that talks to a
+provider and `tools.py` is the only module that knows what the model may ask
+the host to do. Hooks observe the loop's transitions, the sandbox checks the
+operations, and the UI renders information the host sends to it.
 
 ## A session contains one or more turns
 
@@ -72,8 +79,10 @@ usage metrics, and invokes `after_brain_response`. If the model returns a tool
 call, the host displays it with `ui.show_tool()`. For `write_file`, it also
 displays the proposed source with `ui.show_code()`.
 
-The host then invokes `before_tool_execute`, runs the Python function in the
-`TOOLS` registry, invokes `after_tool_execute`, displays the result with
+Each turn binds the tool functions to the host objects it is using, with
+`tools = bind_tools(context.workspace, RUNNER)` from `src/tools.py`. The host
+then invokes `before_tool_execute`, runs the bound Python function, invokes
+`after_tool_execute`, displays the result with
 `ui.show_result()`, and appends the tool result to the conversation. The next
 model step can use that result. A final response with no tool calls ends the
 loop and renders the completion footer.
@@ -164,8 +173,10 @@ The paths then diverge by error type:
 
 ### Blocked write or edit
 
-`SandboxWorkspace._forbid()` records `write_forbidden`, prints the red
-`[FORBIDDEN]` banner, plays the alert, and raises `SandboxForbiddenError`.
+`SandboxWorkspace._forbid()` records `write_forbidden`, asks for the red
+`[FORBIDDEN]` banner, plays the alert, and raises `SandboxForbiddenError`. The
+default banner calls `UI.show_forbidden()`, so the two lines and their colour
+come from `ui.json` even though the decision is made in `sandbox.py`.
 The agent catches it, displays the path-rejected status and lifecycle error,
 shows the failed tool result, and runs the turn-completion hooks. It then exits
 with `FORBIDDEN_EXIT_CODE` (`2`), so the model cannot retry the write.

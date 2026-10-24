@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import agent
+import brain
 
 
 class EnvironmentConfigTests(unittest.TestCase):
@@ -20,13 +20,15 @@ class EnvironmentConfigTests(unittest.TestCase):
                 "OPENROUTER_API_KEY=dotenv-test-key\nMODEL=dotenv-test-model\n",
                 encoding="utf-8",
             )
-            with patch.object(agent, "ROOT_DIR", root), patch.dict(
+            # Model settings live in brain.py, so its repository root is what
+            # decides which .env file is read.
+            with patch.object(brain, "ROOT_DIR", root), patch.dict(
                 os.environ, {}, clear=True
             ):
-                agent._load_dotenv()
+                brain.load_env()
 
-                self.assertEqual(agent._api_key(), "dotenv-test-key")
-                self.assertEqual(agent._model(), "dotenv-test-model")
+                self.assertEqual(brain.api_key(), "dotenv-test-key")
+                self.assertEqual(brain.model_name(), "dotenv-test-model")
 
     def test_002_environment_variables_override_project_env_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -35,7 +37,7 @@ class EnvironmentConfigTests(unittest.TestCase):
                 "OPENROUTER_API_KEY=dotenv-test-key\nMODEL=dotenv-test-model\n",
                 encoding="utf-8",
             )
-            with patch.object(agent, "ROOT_DIR", root), patch.dict(
+            with patch.object(brain, "ROOT_DIR", root), patch.dict(
                 os.environ,
                 {
                     "OPENROUTER_API_KEY": "environment-test-key",
@@ -43,10 +45,10 @@ class EnvironmentConfigTests(unittest.TestCase):
                 },
                 clear=True,
             ):
-                agent._load_dotenv()
+                brain.load_env()
 
-                self.assertEqual(agent._api_key(), "environment-test-key")
-                self.assertEqual(agent._model(), "environment-test-model")
+                self.assertEqual(brain.api_key(), "environment-test-key")
+                self.assertEqual(brain.model_name(), "environment-test-model")
 
 
 if __name__ == "__main__":

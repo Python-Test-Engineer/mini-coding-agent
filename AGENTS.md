@@ -2,7 +2,7 @@
 
 ## AIM
 
-To create a step byn step workbook for ma workshop mof intermediate Python developers to build an Agentic coding harness.
+To create a step by step workbook for my workshop of intermediate Python developers to build an Agentic coding harness.
 
 Each chapter is given an md file in BOOK with a filename of CHXX.md with XX being 01, 02... and this numerical sequence reflecting the progression of the book.
 

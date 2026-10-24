@@ -21,7 +21,7 @@
       <article class="node success" data-node="callback"><span class="index">4</span><h3>Hook callback</h3><p>Default audit hooks add session, tool, and error records.</p></article>
     </section>
     <div class="panels"><section class="panel"><h2>Callback sequence</h2><ol class="events" id="event-list"></ol></section><section class="panel"><h2>Current event</h2><pre class="sample" id="sample-output"></pre></section></div>
-    <p class="note callout">A hook can inspect context and record observations. The agent loop keeps control of model requests, tools, error results, and completion.</p>
+    <p class="note callout">A hook can inspect context and record observations; it never renders to the console itself, and it does not enforce policy. The agent loop keeps control of model requests, tools, error results, and completion.</p>
     <p class="note">Read the <a href="agent-flow-reference.md">detailed flow reference</a> or return to the <a href="agent-flow.html">combined animated overview</a>.</p>
   </main>
   <script type="application/json" id="flow-data">[

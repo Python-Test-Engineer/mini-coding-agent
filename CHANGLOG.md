@@ -143,3 +143,38 @@ forward in a later commit.
 - Updated `BOOK/CH02.md`, `BOOK/book.html`, `GUIDE/guide.html`, `README.md`, and
   `EXAMPLES/EXAMPLES.md`, and added tests `test_021`-`test_025` for the banner,
   the exit status, the stopped session, and home/system-relative rejection.
+
+## Minimalist agent loop: brain, tools, and one console owner
+
+- Split `src/agent.py` by responsibility. The system prompt, tool schemas,
+  OpenRouter request, and usage totals moved to the new `src/brain.py`; the four
+  tool functions and the new `bind_tools()` helper moved to the new
+  `src/tools.py`. `src/agent.py` now contains only the turn context, the hook
+  dispatch helpers, `agent_loop()`, and `main()`, so the ReAct cycle reads as
+  one screen of code.
+- `agent_loop()` binds the tool map per turn (`tools = bind_tools(context.workspace, RUNNER)`)
+  so the registry and the enforcing workspace or runner cannot drift apart.
+- All console output now belongs to `src/ui.py`. `UI.show_forbidden()` renders
+  the red `[FORBIDDEN]` banner and `UI.show_hint()` renders the session hint,
+  both from new `labels`/`styles` entries in `src/ui.json`. `src/sandbox.py`
+  still detects the violation and owns the decision, but its default banner
+  delegates to the UI callable instead of building a Rich console itself.
+- Fixed the Windows session-start sound in `src/lifecycle.py`: the path was
+  built incorrectly and named `ding.wav`, so `%WINDIR%\Media\Windows Logon.wav`
+  never played. The hook now matches the documented behaviour.
+- Updated the tests for the new module boundaries: `tests/test_001_agent_config.py`
+  patches `brain.ROOT_DIR` and calls `brain.load_env()`, and
+  `tests/test_002_agent_metrics.py` and `tests/test_005_agent_metrics.py` call
+  `brain.accumulate_usage()`. `agent.chat` remains the patched network boundary
+  because `agent.py` imports the function into its own namespace. All 33 tests
+  pass.
+- Updated the workshop material: a new "One file, one job" section, file list,
+  tool-map and checklist entries in `BOOK/CH02.md` and `BOOK/book.html`; the
+  module table, tool-dispatch description, and banner route in
+  `GUIDE/agent-flow-reference.md` and `GUIDE/guide.html`; question 2.4 in
+  `GUIDE/QUESTIONS.md`; and the file map and safety note in `README.md`.
+- Updated the animations: `GUIDE/agent-flow.html` (model, tool, and ownership
+  nodes, plus the normal and blocked step narrations),
+  `GUIDE/sandbox-animation.html` (tool dispatch and the banner route),
+  `GUIDE/ui-animation.html` (the two new display methods), and
+  `GUIDE/hooks-animation.html` (hooks observe and never render).

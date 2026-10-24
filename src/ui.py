@@ -135,6 +135,30 @@ class UI:
             line.append(f" - {detail[:100]}", style=self.styles["sandbox_detail"])
         self.console.print(line)
 
+    def show_forbidden(self, detail: str) -> None:
+        """Render the red FORBIDDEN banner for a blocked write or edit.
+
+        The sandbox detects the violation and owns the decision; this method
+        owns how the decision looks. Both lines and their colour come from
+        ``ui.json``, so the wording can change without editing policy code.
+        """
+        # Text() (not markup) keeps the literal [FORBIDDEN] visible even though
+        # square brackets look like Rich markup.
+        self.console.print(
+            Text(
+                self.labels["forbidden"].format(detail=detail),
+                style=self.styles["forbidden"],
+            )
+        )
+        self.console.print(
+            Text(self.labels["forbidden_policy"], style=self.styles["forbidden_policy"])
+        )
+
+    def show_hint(self) -> None:
+        """Render the one-line session hint shown when the prompt starts."""
+        # The exit/quit wording lives in ui.json with every other visible string.
+        self.console.print(Text(self.labels["hint"], style=self.styles["hint"]))
+
     def blank_line(self) -> None:
         self.console.print()
 

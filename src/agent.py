@@ -1,12 +1,28 @@
-"""Mini coding agent — a tiny functional harness for the AI-agents talk.
+"""Mini coding agent - the host loop that drives everything else.
 
 A real ReAct loop: type a request, and the agent uses its tools
 (write/edit/read files, run commands) until it has an answer.
 
     think -> tool call -> result -> repeat -> final answer
 
-LLM calls go to OpenRouter. Settings are loaded from the repository-root .env;
-explicit process environment variables take precedence.
+This file is deliberately small: it owns *when* things happen and nothing else.
+Every other module in ``src/`` owns one responsibility, and the loop calls them:
+
+    main()                     interactive session; wraps everything in session hooks
+      +- agent_loop()          one user request (the function below)
+           +- brain.chat()         ask the model and read the usage numbers
+           +- tools.bind_tools()   the four host tools the model may request
+           +- sandbox.py           enforces paths and commands where they run
+           +- lifecycle.py         optional observers of each transition
+           +- ui.py + ui.json      every line the user sees, and its wording/colour
+           +- agent_logging.py     the JSONL audit trail under logs/
+
+The loop never prints and never formats: it raises events and hands them to the
+UI. The loop also never decides policy itself: a tool call either returns text
+or raises, and the sandbox decides which.
+
+Settings are loaded from the repository-root .env; explicitly exported process
+environment variables take precedence.
 
 Run:  cd src && uv run agent.py "write a hello world script and run it"
 
@@ -17,27 +33,34 @@ history. Type "exit" or "quit" to end the session.
 from __future__ import annotations
 
 import json
-import os
 import sys
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from dotenv import load_dotenv
-
+from brain import (
+    SYSTEM_PROMPT,
+    accumulate_usage,
+    chat,
+    load_env,
+    model_name,
+    new_metrics,
+)
 from lifecycle import Hooks
 from sandbox import (
     ConstrainedLocalRunner,
     SandboxAuditHooks,
     SandboxCommandError,
-    SandboxError,
     SandboxForbiddenError,
     SandboxPathError,
     SandboxWorkspace,
 )
+from tools import bind_tools
 from ui import UI
 
+# --------------------------------------------------------------------------
+# WIRING (the objects and constants the loop runs with)
+# --------------------------------------------------------------------------
 # One UI instance shares a single Rich console for the whole conversation.
 ui = UI()
 
@@ -57,194 +80,23 @@ FORBIDDEN_EXIT_CODE = 2
 ROOT_DIR = Path(__file__).resolve().parent.parent
 WORKDIR = ROOT_DIR / "work"
 LOGDIR = ROOT_DIR / "logs"
+
+# The two enforcing objects. Everything the model asks for travels through one
+# of them: SandboxWorkspace owns file paths, ConstrainedLocalRunner owns
+# commands. A future container or VM replaces them for untrusted prompts
+# without changing this loop.
 WORKSPACE = SandboxWorkspace(WORKDIR, LOGDIR)
 RUNNER = ConstrainedLocalRunner(WORKSPACE)
 
-
-def _load_dotenv() -> None:
-    """Load project settings without overriding explicitly exported values."""
-    load_dotenv(ROOT_DIR / ".env", override=False)
-
-
-_load_dotenv()
+# Load the project .env once, before the first model request needs a key. The
+# helper in brain.py keeps the documented precedence: real environment
+# variables win over the file.
+load_env(ROOT_DIR)
 
 
 # --------------------------------------------------------------------------
-# TOOLS — the only things the agent can do (mirrors real coding agents)
+# TURN CONTEXT AND HOOK DISPATCH
 # --------------------------------------------------------------------------
-def write_file(path: str, content: str) -> str:
-    """Create UTF-8 text only under work/ or logs/."""
-    return WORKSPACE.write_file(path, content)
-
-
-def edit_file(path: str, old: str, new: str) -> str:
-    """Edit UTF-8 text only under work/ or logs/."""
-    return WORKSPACE.edit_file(path, old, new)
-
-
-def read_file(path: str) -> str:
-    """Read a work-relative file or any readable file at an absolute path."""
-    return WORKSPACE.read_file(path)
-
-
-def run(command: str) -> str:
-    """Run an allowlisted command without using a host shell.
-
-    This is a constrained local runner, not a strong OS-level sandbox. A future
-    container or VM runner can implement the same interface for untrusted code.
-    """
-    return RUNNER.run(command)
-
-
-TOOLS = {
-    "write_file": write_file,
-    "edit_file": edit_file,
-    "read_file": read_file,
-    "run": run,
-}
-
-# The schema tells the model which host functions it may ask the agent to call.
-# Python still decides what actually runs; the model does not execute tools itself.
-TOOL_SCHEMAS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Create or overwrite a file only in work/ or logs/.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "content": {"type": "string"},
-                },
-                "required": ["path", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "edit_file",
-            "description": "Replace text only in a file under work/ or logs/.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "old": {"type": "string"},
-                    "new": {"type": "string"},
-                },
-                "required": ["path", "old", "new"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read a work-relative file or any readable absolute path.",
-            "parameters": {
-                "type": "object",
-                "properties": {"path": {"type": "string"}},
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "run",
-            "description": "Run an allowlisted command without a shell (e.g. 'python hello.py').",
-            "parameters": {
-                "type": "object",
-                "properties": {"command": {"type": "string"}},
-                "required": ["command"],
-            },
-        },
-    },
-]
-
-SYSTEM_PROMPT = (
-    "You are a minimal coding agent. You can write, edit and read files "
-    "in work/ or logs/, read files when needed, and run allowlisted commands in work/. "
-    "Never redirect or silently change a requested write destination. If the user "
-    "asks to create or edit a file outside work/ or logs/, do not write it anywhere; "
-    "attempt the requested path only so the host can reject it and show a warning, "
-    "then explain that the operation was blocked. "
-    "Work step by step: "
-    "create the script, run it, fix any errors, and confirm the final output. "
-    "Finish with a short plain-text summary of what you did."
-)
-
-
-# --------------------------------------------------------------------------
-# LLM (OpenRouter, OpenAI-compatible chat completions)
-# --------------------------------------------------------------------------
-def _api_key() -> str:
-    # The project .env is loaded once; shell environment variables take precedence.
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if key:
-        return key
-    raise SystemExit("No OPENROUTER_API_KEY found (set it in the root .env or environment).")
-
-
-def _model() -> str:
-    # Keep the same precedence as the API key: environment, .env, fallback.
-    return os.environ.get("MODEL") or "deepseek/deepseek-v4.1-flash"
-
-
-def chat(messages: list[dict]) -> dict:
-    # OpenRouter accepts the OpenAI chat-completions request/response format.
-    body = json.dumps(
-        {
-            "model": _model(),
-            "messages": messages,
-            "tools": TOOL_SCHEMAS,
-        }
-    ).encode()
-    req = urllib.request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=body,
-        headers={
-            "Authorization": f"Bearer {_api_key()}",
-            "Content-Type": "application/json",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        return json.loads(resp.read())
-
-
-def _accumulate_usage(metrics: dict, usage: dict) -> None:
-    # Keep the most recent prompt size for context display and sum billed usage.
-    prompt_tokens = usage.get("prompt_tokens")
-    if prompt_tokens is not None:
-        prompt_tokens = int(prompt_tokens)
-        metrics["last_input_tokens"] = prompt_tokens
-        metrics["total_input_tokens"] += prompt_tokens
-
-    completion_tokens = usage.get("completion_tokens")
-    if completion_tokens is not None:
-        metrics["total_output_tokens"] += int(completion_tokens)
-
-    cost = usage.get("cost")
-    if cost is not None:
-        metrics["total_cost"] += float(cost)
-
-    context_limit = usage.get("context_limit")
-    if context_limit is not None:
-        metrics["context_limit"] = int(context_limit)
-
-
-def _new_metrics() -> dict:
-    """Create usage totals shared by all requests in one session."""
-    return {
-        "last_input_tokens": 0,
-        "context_limit": None,
-        "total_input_tokens": 0,
-        "total_output_tokens": 0,
-        "total_cost": 0.0,
-    }
-
-
 @dataclass
 class AgentContext:
     """State that lifecycle callbacks may inspect during one agent turn."""
@@ -265,7 +117,7 @@ def _call_hook(
     detail: str = "",
 ) -> None:
     """Run one extension callback while keeping extension failures contained."""
-    # The UI owns presentation.  The agent provides only an event name and a
+    # The UI owns presentation. The agent provides only an event name and a
     # short fact about the transition, so terminal wording stays configurable.
     context.workspace.record(f"lifecycle.{hook_name}", detail, context.step)
     context.ui.show_lifecycle_event(hook_name, detail)
@@ -276,7 +128,7 @@ def _call_hook(
         callback(context, *args)
     except Exception as error:
         # A plugin is optional: report its failure through the UI, then allow
-        # the host-controlled agent loop to continue.  Do not recurse into
+        # the host-controlled agent loop to continue. Do not recurse into
         # ``on_error`` if that callback itself is the failed hook.
         context.workspace.record("lifecycle.hook_error", f"{hook_name}: {error}", context.step)
         context.ui.show_hook_error(hook_name, error)
@@ -323,16 +175,28 @@ def agent_loop(
     if messages is None:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if metrics is None:
-        metrics = _new_metrics()
+        metrics = new_metrics()
     messages.append({"role": "user", "content": prompt})
 
+    # The context is the single object every hook receives, and it is also
+    # where the loop reads the workspace the tools must enforce against.
     context = AgentContext(prompt, messages, metrics, ui, WORKSPACE)
+
+    # Bind the tool functions to the host objects for this turn. Doing it here
+    # (rather than once at import time) keeps the tool map and the enforcing
+    # workspace or runner in step, even when a caller supplies its own.
+    tools = bind_tools(context.workspace, RUNNER)
+
     ui.show_sandbox_status("local_runner", "writes: work/ and logs/; no host shell")
     _call_hook(active_hooks, "before_input", context, prompt, detail=f"{len(prompt)} characters")
     _call_hook(active_hooks, "before_loop", context, detail="waiting for a model response")
 
+    # One iteration of this loop is one "step": one model request, plus any
+    # tools that model request asked for.
     for step in range(1, max_steps + 1):
         context.step = step
+
+        # --- think: ask the model, and record the usage it billed ------------
         _call_hook(
             active_hooks,
             "before_brain_request",
@@ -341,7 +205,7 @@ def agent_loop(
             detail=f"step {step} - {len(messages)} messages",
         )
         reply = chat(messages)
-        _accumulate_usage(metrics, reply.get("usage") or {})
+        accumulate_usage(metrics, reply.get("usage") or {})
         msg = reply["choices"][0]["message"]
         response_tool_count = len(msg.get("tool_calls") or [])
         _call_hook(
@@ -352,9 +216,11 @@ def agent_loop(
             detail=f"step {step} - {response_tool_count} tool call(s)",
         )
 
+        # Any prose in the reply is the model thinking aloud for the user.
         if msg.get("content"):
             ui.show_thought(step, msg["content"])
 
+        # --- no tool calls: the request is finished ---------------------------
         tool_calls = msg.get("tool_calls") or []
         if not tool_calls:
             output = msg.get("content") or ""
@@ -366,6 +232,7 @@ def agent_loop(
             ui.show_done(metrics)
             return
 
+        # --- act: run each requested tool and send its result back ------------
         # Preserve the assistant's tool request before replying with tool results.
         messages.append(msg)
         for tc in tool_calls:
@@ -393,14 +260,17 @@ def agent_loop(
                 detail=f"{name} - {len(args)} argument(s)",
             )
             try:
-                result = TOOLS[name](**args)
+                # The host runs the tool; the model only asked for it. The
+                # sandbox inside the bound function decides whether it is
+                # allowed, and raises when it is not.
+                result = tools[name](**args)
             except Exception as e:  # surface tool errors back to the model
                 _report_error(active_hooks, context, e, "tool_execute")
                 result = f"ERROR: {e}"
                 # Only an outside write/edit target is fatal. A missing file or
                 # a refused command stays a normal tool error the model can fix.
-                # resolve_write_path() already printed the red FORBIDDEN banner
-                # at the point of detection, so nothing is printed here.
+                # The sandbox already announced the red FORBIDDEN banner at the
+                # point of detection, so nothing is printed here.
                 forbidden = isinstance(e, SandboxForbiddenError)
             else:
                 forbidden = False
@@ -446,17 +316,23 @@ def agent_loop(
                 # Hard stop: exit the entire process with a failure status so
                 # nothing after this point can run in the same session.
                 raise SystemExit(FORBIDDEN_EXIT_CODE)
+        # End of this step's tool results: the model reads them on the next step.
         ui.blank_line()
 
+    # The step budget ran out before the model produced a final answer.
     _call_hook(active_hooks, "after_loop", context, "", detail="maximum steps reached")
     _call_hook(active_hooks, "after_input", context, prompt, "", detail="request complete")
     ui.show_max_steps(metrics)
 
 
+# --------------------------------------------------------------------------
+# THE INTERACTIVE SESSION
+# --------------------------------------------------------------------------
 def _read_prompt() -> str | None:
     """Read one user request, returning ``None`` when input is closed."""
     try:
-        return ui.prompt(_model()).strip()
+        # The prompt line, including the model name, is the UI's to draw.
+        return ui.prompt(model_name()).strip()
     except (EOFError, KeyboardInterrupt):
         # EOF (for example, piped input ending) and Ctrl+C both end cleanly.
         ui.blank_line()
@@ -468,10 +344,11 @@ def main() -> None:
     # A command-line request starts the session; otherwise ask for its first turn.
     prompt = " ".join(sys.argv[1:]).strip()
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    metrics = _new_metrics()
+    metrics = new_metrics()
     session_context = AgentContext(prompt or "", messages, metrics, ui, WORKSPACE)
     _call_hook(hooks, "on_session_start", session_context, detail="interactive session")
-    ui.console.print("Type 'exit' or 'quit' to end the conversation.")
+    # The exit/quit wording is configured in ui.json, not written here.
+    ui.show_hint()
     try:
         if not prompt:
             prompt = _read_prompt()
@@ -484,7 +361,8 @@ def main() -> None:
             if prompt.lower() in {"exit", "quit"}:
                 break
 
-            # Keep the session context current while each turn gets its own hook context.
+            # Keep the session context current while each turn gets its own
+            # hook context and its own eight-step model/tool budget.
             session_context.request = prompt
             agent_loop(prompt, messages=messages, metrics=metrics)
             prompt = _read_prompt()
