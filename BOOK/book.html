@@ -898,8 +898,14 @@ prints a red <code>[FORBIDDEN]</code> banner and raises <code>SandboxForbiddenEr
 [FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.
 </code></pre>
 <p>The banner is printed where the decision is made, so no caller can forget to
-report it. <code>SandboxWorkspace</code> accepts an optional <code>banner</code> argument, which lets
-tests and other hosts capture the message instead of printing it.</p>
+report it. On Windows, every sandbox policy rejection plays
+<code>C:\Windows\Media\tada.wav</code>. For a rejected write/edit, the sound plays
+immediately after the <code>[FORBIDDEN]</code> banner; rejected command syntax and
+drive-relative read paths play it at their policy check too. Playback is
+synchronous and best-effort: a missing WAV file or audio device does not affect
+enforcement.
+<code>SandboxWorkspace</code> accepts an optional <code>banner</code> argument, which lets tests and
+other hosts capture the message instead of printing it.</p>
 <p>A relative path that names a real home or system folder is an outside request,
 not a filename inside <code>work/</code>. <code>Desktop/notes.txt</code>, <code>~/Desktop/notes.txt</code>,
 <code>%USERPROFILE%\notes.txt</code>, and <code>Users/you/notes.txt</code> are all refused; without

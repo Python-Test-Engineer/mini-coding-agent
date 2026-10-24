@@ -79,9 +79,10 @@ delete operation.
 No. It is a constrained local runner for this workshop. It rejects shell
 operators, allows only Python and pytest command names, blocks inline `-c`
 commands and out-of-work paths, runs without a shell from `work/`, limits a
-command to 20 seconds, and truncates captured output. The process still runs
-with the current user's operating-system permissions and has no network
-isolation. Use a container or VM before running untrusted code.
+command to 20 seconds, and truncates captured output. On Windows, a sandbox
+policy rejection plays `C:\Windows\Media\tada.wav`. The process still runs with
+the current user's operating-system permissions and has no network isolation.
+Use a container or VM before running untrusted code.
 
 ### 2.8 Where are lifecycle events recorded?
 

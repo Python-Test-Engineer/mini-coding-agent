@@ -152,6 +152,9 @@ home- and system-relative requests such as `Desktop/notes.txt` or
 
 The standalone example above catches `SandboxPathError` itself so it can keep
 demonstrating the next case, so its expected-failure run also shows the banner.
+On Windows, sandbox policy violations also play `C:\Windows\Media\tada.wav`;
+this includes rejected writes, command syntax, and command paths. The standalone
+example catches the exceptions and continues after the sound.
 The interactive agent treats the same error as fatal: it exits the process with
 status `2` (`agent.FORBIDDEN_EXIT_CODE`) instead of letting the model retry the
 request with a different path. This is a **constrained local runner**, not operating-system isolation:

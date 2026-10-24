@@ -21,6 +21,8 @@ above:
   include the new student examples.
 - Added `SKILLS/update-docs/SKILL.md` to synchronize relevant project docs with
   code and workshop changes.
+- Added a Windows `C:\Windows\Media\tada.wav` alert for sandbox policy
+  rejections, including blocked writes, command syntax, and command paths.
 
 ## Branch history note
 

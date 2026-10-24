@@ -126,18 +126,39 @@ def print_forbidden(detail: str) -> None:
     except ImportError:  # pragma: no cover - Rich is a workshop dependency
         print(f"[FORBIDDEN] {detail}")
         print("[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.")
+    else:
+        # A fresh console writes to the current sys.stdout, which keeps the banner
+        # capturable by tests and by any host that redirects its own output.
+        console = Console()
+        console.print(Text(f"[FORBIDDEN] {detail}", style="bold red"))
+        console.print(
+            Text(
+                "[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.",
+                style="bold red",
+            )
+        )
+    # SANDBOX: play the audible alert beside the visible forbidden banner.
+    play_forbidden_sound()
+
+
+def play_forbidden_sound() -> None:
+    """Play the sandbox policy alert WAV before continuing after a violation."""
+    # SANDBOX: all policy rejection paths call this helper; sync playback keeps
+    # the alert audible even when a forbidden write immediately exits the app.
+    error_sound = Path(r"C:\Windows\Media\tada.wav")
+    if not error_sound.is_file():
         return
 
-    # A fresh console writes to the current sys.stdout, which keeps the banner
-    # capturable by tests and by any host that redirects its own output.
-    console = Console()
-    console.print(Text(f"[FORBIDDEN] {detail}", style="bold red"))
-    console.print(
-        Text(
-            "[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.",
-            style="bold red",
+    try:
+        import winsound
+
+        winsound.PlaySound(
+            str(error_sound),
+            winsound.SND_FILENAME | winsound.SND_NODEFAULT,
         )
-    )
+    except (ImportError, OSError, RuntimeError):
+        # Non-Windows platforms or unavailable audio devices are silent.
+        pass
 
 
 class SandboxWorkspace:
@@ -188,6 +209,9 @@ class SandboxWorkspace:
         # The red banner is printed here, where the policy decision is made, so
         # no caller can forget to report it.
         self.banner(detail)
+        # Custom banners do not include the default printer's sound call.
+        if self.banner is not print_forbidden:
+            play_forbidden_sound()
         raise SandboxForbiddenError(requested_path, detail)
 
     @staticmethod
@@ -253,6 +277,7 @@ class SandboxWorkspace:
         if candidate.drive:
             # A drive-relative path has surprising Windows semantics, so require
             # an explicit absolute path for an outside-workspace read.
+            play_forbidden_sound()
             raise SandboxPathError("use an absolute path to read another drive")
         if candidate.parts and candidate.parts[0].lower() == "logs":
             return (self.log_root / Path(*candidate.parts[1:])).resolve(strict=False)
@@ -304,33 +329,39 @@ class ConstrainedLocalRunner:
         self.timeout_seconds = timeout_seconds
         self.max_output_chars = max_output_chars
 
+    @staticmethod
+    def _reject_command(detail: str) -> NoReturn:
+        """Play the sandbox alert and reject a command that breaks policy."""
+        play_forbidden_sound()
+        raise SandboxCommandError(detail)
+
     def _parse(self, command: str) -> list[str]:
         """Parse an argument list and reject tokens that need a shell."""
         if not command.strip():
-            raise SandboxCommandError("command must not be empty")
+            self._reject_command("command must not be empty")
         if any(character in command for character in "|&;><`\n\r"):
-            raise SandboxCommandError("shell operators are not allowed")
+            self._reject_command("shell operators are not allowed")
         try:
             arguments = shlex.split(command, posix=False)
         except ValueError as error:
-            raise SandboxCommandError(f"invalid command arguments: {error}") from error
+            self._reject_command(f"invalid command arguments: {error}")
         if not arguments:
-            raise SandboxCommandError("command must not be empty")
+            self._reject_command("command must not be empty")
 
         executable = Path(arguments[0]).name.lower()
         if executable not in self.allowed_commands:
-            raise SandboxCommandError(
+            self._reject_command(
                 f"command {arguments[0]!r} is not allowed by the local runner"
             )
         # Do not let the command line point the interpreter or test runner at
         # a parent/absolute path. This constrains command *arguments*; a local
         # Python process still needs a container/VM for OS-level isolation.
         if "-c" in arguments:
-            raise SandboxCommandError("inline Python commands are not allowed")
+            self._reject_command("inline Python commands are not allowed")
         for argument in arguments[1:]:
             candidate = Path(argument)
             if candidate.is_absolute() or candidate.drive or ".." in candidate.parts:
-                raise SandboxCommandError("command paths must stay in work")
+                self._reject_command("command paths must stay in work")
         return arguments
 
     def _bounded_output(self, value: str) -> str:

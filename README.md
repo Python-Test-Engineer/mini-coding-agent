@@ -88,8 +88,9 @@ roots. Home- and system-relative requests count as outside, so `Desktop/notes.tx
 `~/Desktop/notes.txt`, and `%USERPROFILE%\notes.txt` are rejected instead of
 being created under `work/`. A blocked write or edit is fatal: it prints a red
 `[FORBIDDEN]` banner and exits with status `2` (`agent.FORBIDDEN_EXIT_CODE`)
-instead of letting the model retry the same request with another path. A
-rejected command is still returned to the model as a normal `ERROR: ...` result.
+instead of letting the model retry the same request with another path. On
+Windows, sandbox policy violations play `C:\Windows\Media\tada.wav`; rejected
+commands are still returned to the model as normal `ERROR: ...` results.
 The runner uses `shell=False`, an allowlist (`python` and `pytest` variants), a
 timeout, bounded output, and rejects parent/absolute command paths. Its child
 processes still run with the current user's permissions and are not
