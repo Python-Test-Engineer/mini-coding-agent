@@ -24,6 +24,11 @@ repository-root `logs/`.
 
 See the [animated agent flow explainer](GUIDE/agent-flow.html) for the request,
 hook, sandbox, and UI event paths.
+See the [flow reference and animation storyboard](GUIDE/agent-flow-reference.md)
+for the detailed event sequence and component responsibilities.
+The focused [logging](GUIDE/logging-animation.html), [hooks](GUIDE/hooks-animation.html),
+[sandbox](GUIDE/sandbox-animation.html), and [UI](GUIDE/ui-animation.html) animations
+walk through each feature separately.
 
 ## Run the offline hook and sandbox examples
 

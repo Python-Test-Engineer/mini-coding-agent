@@ -23,6 +23,13 @@ above:
   code and workshop changes.
 - Added a Windows `C:\Windows\Media\tada.wav` alert for sandbox policy
   rejections, including blocked writes, command syntax, and command paths.
+- Added `GUIDE/agent-flow-reference.md` as a detailed logging, hooks, sandbox,
+  and UI guide with an animation-ready scene outline.
+- Added focused logging, hooks, sandbox, and UI animations under `GUIDE/`, with
+  shared playback controls and responsive styling.
+- Added `GUIDE/agent-flow.html`, an animated walkthrough of successful and
+  blocked tool flows, lifecycle callbacks, sandbox checks, and direct UI calls;
+  linked it from the README and workshop guide.
 
 ## Branch history note
 

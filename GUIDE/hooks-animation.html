@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Animated walkthrough of lifecycle hook order and audit callbacks in the mini coding agent.">
+  <title>Agent flow: lifecycle hooks</title>
+  <link rel="stylesheet" href="feature-flow.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topline"><a class="brand" href="agent-flow.html">← Agent flow overview</a><nav class="nav" aria-label="Feature explainers"><a href="logging-animation.html">Logging</a><a href="hooks-animation.html" aria-current="page">Hooks</a><a href="sandbox-animation.html">Sandbox</a><a href="ui-animation.html">UI</a></nav></div>
+    <header><div class="eyebrow">Feature 2 of 4 · lifecycle callbacks</div><h1>How hooks observe the agent</h1><p class="intro">Hooks run at named boundaries around a conversation, a request, a model call, and a tool call. The host announces each transition, records and displays it, then invokes the configured callback.</p></header>
+    <div class="toolbar" aria-label="Animation controls"><button class="play" id="play" type="button">▶ Play</button><button id="pause" type="button">Ⅱ Pause</button><button id="back" type="button">← Back</button><button id="next" type="button">Next →</button><button id="restart" type="button">↺ Restart</button></div>
+    <div class="progress-wrap" role="progressbar" aria-label="Animation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress" id="progress"></div></div>
+    <section class="stage" aria-live="polite" aria-atomic="true"><div><div class="stage-kicker" id="step-count"></div><h2 id="step-title"></h2><p id="step-description"></p></div><div class="stage-code"><code id="step-code"></code></div></section>
+    <section class="flow" aria-label="Lifecycle hook flow">
+      <article class="node" data-node="session"><span class="index">1</span><h3>Session wrapper</h3><p><code>main()</code> calls session start and stop around the conversation.</p></article>
+      <article class="node" data-node="agent"><span class="index">2</span><h3>Agent lifecycle</h3><p>Turn hooks surround input, model steps, tools, and completion.</p></article>
+      <article class="node audit" data-node="dispatch"><span class="index">3</span><h3><code>_call_hook()</code></h3><p>Records transition, sends it to UI, then looks up the callback.</p></article>
+      <article class="node success" data-node="callback"><span class="index">4</span><h3>Hook callback</h3><p>Default audit hooks add session, tool, and error records.</p></article>
+    </section>
+    <div class="panels"><section class="panel"><h2>Callback sequence</h2><ol class="events" id="event-list"></ol></section><section class="panel"><h2>Current event</h2><pre class="sample" id="sample-output"></pre></section></div>
+    <p class="note callout">A hook can inspect context and record observations. The agent loop keeps control of model requests, tools, error results, and completion.</p>
+    <p class="note">Read the <a href="agent-flow-reference.md">detailed flow reference</a> or return to the <a href="agent-flow.html">combined animated overview</a>.</p>
+  </main>
+  <script type="application/json" id="flow-data">[
+    {"title":"Session hooks wrap the conversation","description":"main() calls on_session_start before the interactive prompt loop and on_session_stop when it ends. Several user requests can run inside one session.","code":"on_session_start → turns → on_session_stop", "nodes":["session"],"events":["Session start callback runs once.","Agent loop runs once per user request.","Session stop callback runs once at shutdown."],"sample":"SandboxAuditHooks.on_session_start(context)\n  ├─ base hook: Windows logon sound when available\n  └─ record session_started"},
+    {"title":"A request creates an AgentContext","description":"agent_loop() selects the active Hooks instance and creates context with request, live messages, metrics, UI, workspace, and the current step.","code":"AgentContext(request, messages, metrics, ui, workspace)","nodes":["agent"],"events":["before_input(user_input)","before_loop()"],"sample":"context.request\ncontext.messages\ncontext.metrics\ncontext.ui\ncontext.workspace\ncontext.step"},
+    {"title":"The agent reaches a named transition","description":"Before and after model requests and tool execution, the host calls _call_hook() with the event name, context, arguments, and a short display detail.","code":"_call_hook(hooks, event_name, context, ...)","nodes":["agent","dispatch"],"events":["before_brain_request(conversation)","after_brain_response(thought)","before_tool_execute(name, args)","after_tool_execute(name, result)"],"sample":"Lifecycle sequence:\nbefore_input → before_loop\nbefore_brain_request → after_brain_response\nbefore_tool_execute → after_tool_execute\nafter_loop → after_input"},
+    {"title":"The event is recorded and shown first","description":"_call_hook() writes lifecycle.<event> to the workspace log, asks UI.show_lifecycle_event() to render it, then invokes the matching method on the Hooks object.","code":"workspace.record → UI.show_lifecycle_event → callback", "nodes":["dispatch"],"events":["1. Persist the transition.","2. Render the lifecycle trace.","3. Call the hook method, if present."],"sample":"lifecycle | [>] tool starting - write_file - 2 argument(s)\n\nThen callback: before_tool_execute(...)"},
+    {"title":"The audit hook adds its own observation","description":"SandboxAuditHooks records tool_requested before execution and tool_finished after it. It records whether a result is complete or failed.","code":"tool_requested → tool_finished", "nodes":["callback"],"events":["tool_requested: tool name and argument count", "tool_finished: complete or failed", "on_error: host_error audit record"],"sample":"workspace.record(\n  'tool_requested',\n  'write_file with 2 argument(s)',\n  step=1\n)"},
+    {"title":"A hook failure is contained","description":"If an optional lifecycle callback raises, _call_hook() records lifecycle.hook_error, asks the UI to display a hook-error panel, and continues the host loop.","code":"callback error → record + UI panel → continue", "nodes":["dispatch","callback"],"events":["The host catches callback exceptions.","The UI reports which hook failed.","The core agent loop continues."],"sample":"lifecycle.hook_error\nUI.show_hook_error(hook_name, error)"}
+  ]</script>
+  <script src="feature-flow.js" defer></script>
+</body>
+</html>

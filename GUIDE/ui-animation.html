@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Animated walkthrough of how the agent sends display events to its terminal UI.">
+  <title>Agent flow: UI events</title>
+  <link rel="stylesheet" href="feature-flow.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topline"><a class="brand" href="agent-flow.html">← Agent flow overview</a><nav class="nav" aria-label="Feature explainers"><a href="logging-animation.html">Logging</a><a href="hooks-animation.html">Hooks</a><a href="sandbox-animation.html">Sandbox</a><a href="ui-animation.html" aria-current="page">UI</a></nav></div>
+    <header><div class="eyebrow">Feature 4 of 4 · terminal presentation</div><h1>How the agent sends events to the UI</h1><p class="intro">The host calls a UI method with an event name and detail. The UI maps that request to labels and Rich styles in <code>src/ui.json</code>, then renders it in the terminal.</p></header>
+    <div class="toolbar" aria-label="Animation controls"><button class="play" id="play" type="button">▶ Play</button><button id="pause" type="button">Ⅱ Pause</button><button id="back" type="button">← Back</button><button id="next" type="button">Next →</button><button id="restart" type="button">↺ Restart</button></div>
+    <div class="progress-wrap" role="progressbar" aria-label="Animation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress" id="progress"></div></div>
+    <section class="stage" aria-live="polite" aria-atomic="true"><div><div class="stage-kicker" id="step-count"></div><h2 id="step-title"></h2><p id="step-description"></p></div><div class="stage-code"><code id="step-code"></code></div></section>
+    <section class="flow" aria-label="UI rendering path">
+      <article class="node" data-node="host"><span class="index">1</span><h3>Agent host</h3><p>Decides that a lifecycle, status, tool, or result should be shown.</p></article>
+      <article class="node" data-node="method"><span class="index">2</span><h3>UI method</h3><p>Receives the event name and short detail directly from the agent.</p></article>
+      <article class="node audit" data-node="config"><span class="index">3</span><h3><code>ui.json</code></h3><p>Provides configured labels and Rich styles for the event family.</p></article>
+      <article class="node success" data-node="console"><span class="index">4</span><h3>Rich console</h3><p>Renders the line, panel, code, status, or completion footer.</p></article>
+    </section>
+    <div class="panels"><section class="panel"><h2>Example event trace</h2><ol class="events" id="event-list"></ol></section><section class="panel"><h2>Rendered output</h2><pre class="sample" id="sample-output"></pre></section></div>
+    <p class="note callout">There is no separate UI event bus. The host supplies the event; UI code owns its presentation. Sandbox checks decide whether an operation may run.</p>
+    <p class="note">Read the <a href="agent-flow-reference.md">detailed flow reference</a> or return to the <a href="agent-flow.html">combined animated overview</a>.</p>
+  </main>
+  <script type="application/json" id="flow-data">[
+    {"title":"The agent decides an event occurred","description":"_call_hook() reaches a lifecycle boundary, or the agent calls a specific display method for a request, tool, result, or completion.","code":"context.ui.show_lifecycle_event(name, detail)","nodes":["host"],"events":["The host controls event timing.","The host passes a name and short detail."],"sample":"Event: before_tool_execute\nDetail: write_file - 2 argument(s)"},
+    {"title":"The host calls a UI method directly","description":"For lifecycle lines, UI.show_lifecycle_event() receives the name and detail. Other methods handle sandbox status, tool calls, code, results, errors, and completion.","code":"UI.show_lifecycle_event(event, detail)","nodes":["host","method"],"events":["No event queue or UI bus is involved.","The UI method owns formatting.","The agent loop keeps control flow."],"sample":"context.ui.show_lifecycle_event(\n  'before_tool_execute',\n  'write_file - 2 argument(s)'\n)"},
+    {"title":"UI looks up a label and style","description":"UI.show_lifecycle_event() reads labels.lifecycle_events and styles.lifecycle_events from ui.json. Unknown event names get a readable fallback label and style.","code":"labels[name] + styles[name]", "nodes":["method","config"],"events":["before_tool_execute → [>] tool starting", "bold yellow style", "Details are limited to 100 characters."],"sample":"ui.json\nlabels.lifecycle_events.before_tool_execute = '[>] tool starting'\nstyles.lifecycle_events.before_tool_execute = 'bold yellow'"},
+    {"title":"Rich renders the trace line","description":"The UI builds a Rich Text object from the prefix, configured label, and shortened detail, then prints it with the shared console.","code":"Rich Text → console.print(line)","nodes":["config","console"],"events":["Prefix and event label are composed.","Configured style is applied.","Detail is clipped to keep the trace compact."],"sample":"lifecycle | [>] tool starting - write_file - 2 argument(s)"},
+    {"title":"Sandbox errors use the status renderer","description":"When _report_error() catches a SandboxPathError or SandboxCommandError, it calls UI.show_sandbox_status() with a status name and detail. ui.json chooses that status line's label and style.","code":"UI.show_sandbox_status('path_rejected', detail)","nodes":["host","method","config","console"],"events":["Path error → path_rejected.","Command policy error → command_rejected.","Timeout → command_timed_out."],"sample":"sandbox | [lock] path rejected - write/edit path must stay in work or logs"},
+    {"title":"Other display methods share the same separation","description":"show_tool(), show_code(), show_result(), show_hook_error(), show_done(), and show_max_steps() render their own UI component. The agent chooses when each one appears.","code":"Host calls UI → UI renders with Rich", "nodes":["host","method","console"],"events":["Tool call and arguments.","Generated code and tool result.","Hook error panel and usage footer."],"sample":"ui.show_tool(name, args)\nui.show_code(content)\nui.show_result(result)\nui.show_done(metrics)"}
+  ]</script>
+  <script src="feature-flow.js" defer></script>
+</body>
+</html>

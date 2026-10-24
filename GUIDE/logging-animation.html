@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Animated walkthrough of lifecycle and sandbox JSONL logging in the mini coding agent.">
+  <title>Agent flow: logging</title>
+  <link rel="stylesheet" href="feature-flow.css">
+</head>
+<body>
+  <main class="page">
+    <div class="topline"><a class="brand" href="agent-flow.html">← Agent flow overview</a><nav class="nav" aria-label="Feature explainers"><a href="logging-animation.html" aria-current="page">Logging</a><a href="hooks-animation.html">Hooks</a><a href="sandbox-animation.html">Sandbox</a><a href="ui-animation.html">UI</a></nav></div>
+    <header><div class="eyebrow">Feature 1 of 4 · persistent event trail</div><h1>How logging works</h1><p class="intro">The agent records lifecycle transitions and sandbox audit events as JSON Lines. Follow one event from the agent loop into memory and then onto disk under <code>logs/</code>.</p></header>
+    <div class="toolbar" aria-label="Animation controls"><button class="play" id="play" type="button">▶ Play</button><button id="pause" type="button">Ⅱ Pause</button><button id="back" type="button">← Back</button><button id="next" type="button">Next →</button><button id="restart" type="button">↺ Restart</button></div>
+    <div class="progress-wrap" role="progressbar" aria-label="Animation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress" id="progress"></div></div>
+    <section class="stage" aria-live="polite" aria-atomic="true"><div><div class="stage-kicker" id="step-count"></div><h2 id="step-title"></h2><p id="step-description"></p></div><div class="stage-code"><code id="step-code"></code></div></section>
+    <section class="flow" aria-label="Logging flow">
+      <article class="node" data-node="agent"><span class="index">1</span><h3>Agent transition</h3><p>The host reaches a named lifecycle boundary.</p></article>
+      <article class="node audit" data-node="record"><span class="index">2</span><h3><code>workspace.record()</code></h3><p>Builds an event and keeps it in the workspace event list.</p></article>
+      <article class="node" data-node="event"><span class="index">3</span><h3><code>EventLog.write()</code></h3><p>Adds event details and recording timestamps to a JSON object.</p></article>
+      <article class="node success" data-node="file"><span class="index">4</span><h3>JSONL file</h3><p>Appends one serialized event per line under <code>logs/</code>.</p></article>
+    </section>
+    <div class="panels"><section class="panel"><h2>Observed events</h2><ol class="events" id="event-list"></ol></section><section class="panel"><h2>Example log output</h2><pre class="sample" id="sample-output"></pre></section></div>
+    <p class="note callout">Lifecycle records answer “when did the host cross this boundary?” Audit records such as <code>tool_requested</code> and <code>tool_finished</code> answer “what operation was requested and how did it end?” Both use the same workspace log.</p>
+    <p class="note">Read the <a href="agent-flow-reference.md">detailed flow reference</a> or return to the <a href="agent-flow.html">combined animated overview</a>.</p>
+  </main>
+  <script type="application/json" id="flow-data">[
+    {"title":"The host reaches a lifecycle boundary","description":"The agent calls _call_hook() before or after a known transition, such as before_tool_execute. The detail and current model step travel with the event.","code":"_call_hook(..., 'before_tool_execute', ...) ","nodes":["agent"],"events":["A named transition occurs.","The agent provides a short detail and step."],"sample":"No event has been written yet."},
+    {"title":"The workspace makes an event record","description":"workspace.record() creates a SandboxEvent and appends it to workspace.events in memory. This record is independent of the model message history.","code":"SandboxEvent(kind, detail, step)","nodes":["record"],"events":["Event kind: lifecycle.before_tool_execute","Detail: write_file - 2 argument(s)","Step: 1"],"sample":"In memory:\nSandboxEvent(\n  kind='lifecycle.before_tool_execute',\n  detail='write_file - 2 argument(s)',\n  step=1,\n  timestamp=<monotonic time>\n)"},
+    {"title":"The event log adds durable fields","description":"EventLog.write() builds a JSON object containing the event, detail, step, monotonic time, and a UTC recording timestamp.","code":"EventLog.write(event) → json.dumps(payload)","nodes":["event"],"events":["Event name and detail copied.","monotonic_seconds and recorded_at added."],"sample":"{\n  \"event\": \"lifecycle.before_tool_execute\",\n  \"detail\": \"write_file - 2 argument(s)\",\n  \"step\": 1,\n  \"monotonic_seconds\": 42.17,\n  \"recorded_at\": \"2026-10-24T10:30:00+00:00\"\n}"},
+    {"title":"One JSON object is appended per line","description":"The log file is created at session setup. Each event appends one complete JSON object and a newline, making the file easy to inspect and stream-process.","code":"logs/agent-<timestamp>-<id>.jsonl", "nodes":["event","file"],"events":["The event is serialized with sorted keys.","The JSON string and newline are appended to the file."],"sample":"{\"detail\": \"write_file - 2 argument(s)\", \"event\": \"lifecycle.before_tool_execute\", \"monotonic_seconds\": 42.17, \"recorded_at\": \"2026-10-24T10:30:00+00:00\", \"step\": 1}\n"},
+    {"title":"Audit hooks add operation-specific records","description":"SandboxAuditHooks adds records for session start and stop, tool requests, tool outcomes, and caught host errors. The agent also records each lifecycle transition.","code":"tool_requested → tool_finished → host_error", "nodes":["record","file"],"events":["Lifecycle record: when a transition occurred.","Audit record: requested action, outcome, or caught error.","Both are appended to the same JSONL stream."],"sample":"{\"event\": \"tool_requested\", \"detail\": \"write_file with 2 argument(s)\", \"step\": 1, ...}\n{\"event\": \"tool_finished\", \"detail\": \"write_file: complete\", \"step\": 1, ...}"}
+  ]</script>
+  <script src="feature-flow.js" defer></script>
+</body>
+</html>
