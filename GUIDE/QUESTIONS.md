@@ -81,7 +81,8 @@ No. It is a constrained local runner for this workshop. It rejects shell
 operators, allows only Python and pytest command names, blocks inline `-c`
 commands and out-of-work paths, runs without a shell from `work/`, limits a
 command to 20 seconds, and truncates captured output. On Windows, a sandbox
-policy rejection plays `C:\Windows\Media\tada.wav`. The process still runs with
+policy rejection plays `C:\Windows\Media\tada.wav`; that path and its `play` flag
+are declared in `src/sounds.json` and played through `src/sounds.py`. The process still runs with
 the current user's operating-system permissions and has no network isolation.
 Use a container or VM before running untrusted code.
 

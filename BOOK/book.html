@@ -513,6 +513,14 @@ Hooks receive information about the transition and can react to it.</p>
 <td>Adds the wording, ASCII icons, and styles for lifecycle events, sandbox statuses, the forbidden banner, and the session hint.</td>
 </tr>
 <tr>
+<td><code>src/sounds.json</code></td>
+<td>Declares the sound effects. Each entry records its <code>sound_file</code>, a <code>play</code> flag, and the <code>location</code> it fires from.</td>
+</tr>
+<tr>
+<td><code>src/sounds.py</code></td>
+<td>Loads <code>sounds.json</code> and plays a named WAV when its <code>play</code> flag is true, staying silent on any other host.</td>
+</tr>
+<tr>
 <td><code>tests/test_004_agent_lifecycle.py</code></td>
 <td>Verifies callback order, context, UI output, and hook-failure isolation.</td>
 </tr>
@@ -547,6 +555,7 @@ owns <em>when</em> something happens, and the other files own <em>how</em>:</p>
        ├─ sandbox.py               enforce paths and commands where they run
        ├─ lifecycle.py             optional observers of each transition
        ├─ ui.py + ui.json          every line the user sees, and its wording
+       ├─ sounds.py + sounds.json  the sound effects, and whether each plays
        └─ agent_logging.py         the JSONL audit trail under logs/
 </code></pre>
 <table>
@@ -580,6 +589,10 @@ owns <em>when</em> something happens, and the other files own <em>how</em>:</p>
 <tr>
 <td><code>src/ui.py</code>, <code>src/ui.json</code></td>
 <td>How does this look in the terminal?</td>
+</tr>
+<tr>
+<td><code>src/sounds.py</code>, <code>src/sounds.json</code></td>
+<td>Which sound plays, and is it enabled?</td>
 </tr>
 <tr>
 <td><code>src/agent_logging.py</code></td>
@@ -667,6 +680,10 @@ save_tool_result(result)
 <td><code>UI</code> and <code>ui.json</code></td>
 </tr>
 <tr>
+<td>Declaring which sound plays, and whether it is enabled</td>
+<td><code>sounds.py</code> and <code>sounds.json</code></td>
+</tr>
+<tr>
 <td>Recording the audit trail</td>
 <td><code>src/agent_logging.py</code></td>
 </tr>
@@ -679,6 +696,9 @@ in one trustworthy place: the host loop.</p>
 <h2 id="chapter-02-the-hook-contract-in-src-lifecycle-py">The hook contract in <code>src/lifecycle.py</code></h2>
 <p><code>lifecycle.py</code> contains a small base class. On Windows, its session-start hook
 plays <code>%WINDIR%\Media\Windows Logon.wav</code> asynchronously when the file exists.
+The WAV path and its <code>play</code> flag are read from <code>sounds.json</code> through
+<code>sounds.py</code>, so the jingle can be silenced or repointed with a config edit
+instead of a code change.
 Other methods are no-ops by default, so a subclass only overrides the callbacks
 it needs. The default <code>SandboxAuditHooks</code> calls the base session-start hook
 before writing its session log entry.</p>
@@ -1012,7 +1032,8 @@ report it, but its <em>appearance</em> is still the UI's: the default banner cal
 immediately after the <code>[FORBIDDEN]</code> banner; rejected command syntax and
 drive-relative read paths play it at their policy check too. Playback is
 synchronous and best-effort: a missing WAV file or audio device does not affect
-enforcement.
+enforcement. Like the session-start jingle, the alert WAV and its <code>play</code> flag
+are declared in <code>sounds.json</code> and played through <code>sounds.py</code>.
 <code>SandboxWorkspace</code> accepts an optional <code>banner</code> argument, which lets tests and
 other hosts capture the message instead of printing it.</p>
 <p>A relative path that names a real home or system folder is an outside request,
@@ -1111,6 +1132,7 @@ workspace, plus the current step.</li>
 <li>[ ] Hook errors appear in the terminal but do not stop the agent loop.</li>
 <li>[ ] The UI owns lifecycle text, icons, colours, the <code>[FORBIDDEN]</code> banner, the
 session hint, and trace formatting.</li>
+<li>[ ] <code>src/sounds.json</code> declares each sound and its <code>play</code> flag, played through <code>src/sounds.py</code>.</li>
 <li>[ ] <code>tests/test_004_agent_lifecycle.py</code> verifies ordering and failure isolation.</li>
 <li>[ ] <code>SandboxWorkspace</code> enforces the local file path boundary.</li>
 <li>[ ] Lifecycle events are appended as JSONL records under <code>logs/</code>.</li>

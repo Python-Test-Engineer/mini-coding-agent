@@ -22,7 +22,8 @@ system prompt, the tool schemas, and the OpenRouter request. `src/tools.py`
 holds the four tool functions and `bind_tools()`, which attaches the enforcing
 workspace or runner. `src/sandbox.py` contains the path and command policy,
 `src/lifecycle.py` the callback contract, and `src/agent_logging.py` the JSONL
-audit trail. `src/ui.py` and `src/ui.json` own every line the program prints.
+audit trail. `src/ui.py` and `src/ui.json` own every line the program prints, and
+`src/sounds.py` and `src/sounds.json` own the sound effects.
 `src/demo-prompt.md` contains an example request. Generated files and commands
 use the repository-root `work/` directory, regardless of where the agent is
 launched. Lifecycle and sandbox records are written as JSONL files under
@@ -105,7 +106,8 @@ being created under `work/`. A blocked write or edit is fatal: the sandbox asks
 `src/ui.json`) and exits with status `2` (`agent.FORBIDDEN_EXIT_CODE`)
 instead of letting the model retry the same request with another path. On
 Windows, sandbox policy violations play `C:\Windows\Media\tada.wav`; rejected
-commands are still returned to the model as normal `ERROR: ...` results.
+commands are still returned to the model as normal `ERROR: ...` results. Both
+sound effects are declared in `src/sounds.json` and played through `src/sounds.py`.
 The runner uses `shell=False`, an allowlist (`python` and `pytest` variants), a
 timeout, bounded output, and rejects parent/absolute command paths. Its child
 processes still run with the current user's permissions and are not

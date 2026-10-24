@@ -1357,7 +1357,9 @@ uv run agent.py "write a hello world script and run it"</code></pre>
             <div class="section-kicker">One documented interface</div>
             <h2>Each callback sees the current turn.</h2>
             <p class="section-intro"><code>Hooks</code> in <code>src/lifecycle.py</code> asynchronously plays
-              <code>%WINDIR%\Media\Windows Logon.wav</code> at session start on Windows when the file is present.
+              <code>%WINDIR%\Media\Windows Logon.wav</code> at session start on Windows when the file is present; the
+              WAV path and its <code>play</code> flag come from <code>src/sounds.json</code>, played through
+              <code>src/sounds.py</code>.
               Its other callbacks are no-ops by default. Students override only the callbacks they need. Each receives
               an <code>AgentContext</code> with the request,
               live message history, usage metrics, active UI, workspace file policy and event log, and current model step.</p>
@@ -1513,7 +1515,7 @@ process exit status: 2</code></pre>
             somewhere else. Home- and system-relative paths (<code>Desktop/x</code>, <code>~/Desktop/x</code>,
             <code>Users/me/x</code>) count as outside and are no longer created under <code>work/</code>. On Windows,
             sandbox policy violations play <code>C:\Windows\Media\tada.wav</code>; rejected commands still return
-            as ordinary <code>ERROR: ...</code> results.</p>
+            as ordinary <code>ERROR: ...</code> results. Both sounds are declared in <code>src/sounds.json</code>.</p>
         </div>
         <p class="section-intro"><code>UI.show_sandbox_status()</code> formats these status lines from the
           <code>sandbox_events</code> labels and styles in <code>ui.json</code>, and <code>UI.show_forbidden()</code>

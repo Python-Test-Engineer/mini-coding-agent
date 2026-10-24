@@ -41,8 +41,9 @@ main()
   └─ on_session_stop
 ```
 
-`on_session_start` plays the existing Windows logon WAV when available.
-`SandboxAuditHooks` calls the base hook and records `session_started` in the
+`on_session_start` plays the existing Windows logon WAV when available; the WAV
+and its on/off `play` flag are declared in `sounds.json`. `SandboxAuditHooks`
+calls the base hook and records `session_started` in the
 workspace event log. At the end of the conversation, it records
 `session_stopped`; `main()` also asks the UI to render the stopped status.
 
@@ -167,7 +168,8 @@ filesystem boundary is needed to isolate executed code.
 Every sandbox policy rejection plays `C:\Windows\Media\tada.wav` on Windows
 when the file and audio device are available. Playback is synchronous. The
 sound helper is called at the policy check, alongside the `[FORBIDDEN]` banner
-for blocked writes and edits.
+for blocked writes and edits. Both the session jingle and this alert are
+declared in `sounds.json` and played through `sounds.py`.
 
 The paths then diverge by error type:
 
