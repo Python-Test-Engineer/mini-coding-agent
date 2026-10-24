@@ -22,6 +22,9 @@ use the repository-root `work/` directory, regardless of where the agent is
 launched. Lifecycle and sandbox records are written as JSONL files under
 repository-root `logs/`.
 
+See the [animated agent flow explainer](GUIDE/agent-flow.html) for the request,
+hook, sandbox, and UI event paths.
+
 ## Run the offline hook and sandbox examples
 
 The API-free Rich demo shows lifecycle callbacks and sandbox operations that
