@@ -1,5 +1,7 @@
 """Verify the host enforces the constrained local sandbox policy."""
 
+import contextlib
+import io
 import json
 import subprocess
 import sys
@@ -18,16 +20,23 @@ from sandbox import (
     ConstrainedLocalRunner,
     SandboxAuditHooks,
     SandboxCommandError,
+    SandboxForbiddenError,
     SandboxPathError,
     SandboxWorkspace,
 )
+from lifecycle import Hooks
 from ui import UI
 
 
 class SandboxWorkspaceTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.workspace = SandboxWorkspace(Path(self.temp_dir.name) / "workspace")
+        # Capture the red banner so each test can assert on it without writing
+        # to the real terminal.
+        self.banners: list[str] = []
+        self.workspace = SandboxWorkspace(
+            Path(self.temp_dir.name) / "workspace", banner=self.banners.append
+        )
 
     def tearDown(self):
         self.temp_dir.cleanup()
@@ -64,6 +73,48 @@ class SandboxWorkspaceTests(unittest.TestCase):
             "event note",
         )
         self.assertEqual(self.workspace.read_file(str(outside)), "read only")
+
+    def test_024_rejects_home_and_system_relative_paths(self):
+        """A "Desktop/..." or "~/..." request is an escape, not a work filename."""
+        outside_requests = [
+            "~/Desktop/notes.txt",
+            "%USERPROFILE%/Desktop/notes.txt",
+            "$HOME/notes.txt",
+            "Users/me/notes.txt",
+            "Desktop/notes.txt",
+            "Documents/plan.md",
+            "Downloads/report.csv",
+        ]
+
+        for request in outside_requests:
+            with self.subTest(request=request):
+                self.banners.clear()
+                with self.assertRaises(SandboxForbiddenError) as rejected:
+                    self.workspace.write_file(request, "blocked")
+
+                # The exact request is kept for the caller and the banner fired.
+                self.assertEqual(rejected.exception.requested_path, request)
+                self.assertIn("write/edit path must stay in work or logs", self.banners[0])
+                # Nothing was quietly created under work/.
+                for name in ("~", "Users", "Desktop", "Documents", "Downloads", "$HOME"):
+                    self.assertFalse((self.workspace.root / name).exists(), name)
+
+    def test_025_forbidden_write_is_announced_and_audited(self):
+        """Without an injected banner, the default printer writes the red lines."""
+        # A workspace with no banner argument uses sandbox.print_forbidden().
+        default_workspace = SandboxWorkspace(Path(self.temp_dir.name) / "default")
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            with self.assertRaises(SandboxForbiddenError):
+                default_workspace.write_file("../outside.txt", "blocked")
+
+        printed = buffer.getvalue()
+        self.assertIn("[FORBIDDEN]", printed)
+        self.assertIn("stopping the agent", printed)
+        self.assertEqual(printed.count("[FORBIDDEN]"), 2)
+
+        events = default_workspace.event_log.path.read_text(encoding="utf-8").splitlines()
+        self.assertTrue(any('"event": "write_forbidden"' in line for line in events))
 
     def test_013_record_writes_jsonl_events_under_logs(self):
         self.workspace.record("lifecycle.before_loop", "waiting", step=1)
@@ -182,7 +233,7 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
             )
             self.assertIn("Created work/notes/hello.txt", console.export_text())
 
-    def test_021_path_rejection_is_returned_to_the_model_and_shown_by_the_ui(self):
+    def test_021_path_rejection_prints_forbidden_and_stops_the_run(self):
         console = Console(record=True, width=120)
         tool_reply = {
             "choices": [
@@ -202,17 +253,79 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
                 }
             ]
         }
+        # The reply after a blocked write must never be requested.
         final_reply = {"choices": [{"message": {"content": "Finished", "tool_calls": []}}]}
 
+        banner = io.StringIO()
         with patch("agent.ui", UI(console=console)), patch(
             "agent.chat", side_effect=[tool_reply, final_reply]
-        ):
-            agent.agent_loop("try an unsafe path")
+        ) as chat, self.assertRaises(SystemExit) as exit_info:
+            # resolve_write_path() prints its red banner straight to stdout.
+            with contextlib.redirect_stdout(banner):
+                agent.agent_loop("try an unsafe path")
 
         output = console.export_text()
         self.assertIn("path rejected", output)
         self.assertIn("write/edit path must stay in work or logs", output)
-        self.assertIn("Finished", output)
+        # The red banner appears twice: the reason, then the policy.
+        self.assertEqual(banner.getvalue().count("[FORBIDDEN]"), 2)
+        self.assertIn("stopping the agent", banner.getvalue())
+        # The turn ended immediately instead of asking the model to continue.
+        self.assertNotIn("Finished", output)
+        self.assertEqual(chat.call_count, 1)
+        # A non-zero status makes a blocked write a script/CI failure.
+        self.assertEqual(exit_info.exception.code, agent.FORBIDDEN_EXIT_CODE)
+
+    def test_023_forbidden_write_ends_the_interactive_session(self):
+        """The whole process exits instead of prompting for another request."""
+        console = Console(record=True, width=120)
+        protected_file = Path(agent.ROOT_DIR) / "README.md"
+        original = protected_file.read_text(encoding="utf-8")
+        tool_reply = {
+            "choices": [
+                {
+                    "message": {
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_write",
+                                "function": {
+                                    "name": "write_file",
+                                    "arguments": json.dumps(
+                                        {
+                                            "path": str(protected_file),
+                                            "content": "blocked",
+                                        }
+                                    ),
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+        later_reply = {"choices": [{"message": {"content": "should never run"}}]}
+        banner = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = SandboxWorkspace(Path(temp_dir) / "workspace")
+            with patch("agent.ui", UI(console=console)), patch.object(
+                agent, "WORKSPACE", workspace
+            ), patch.object(agent, "hooks", Hooks()), patch.object(
+                sys, "argv", ["agent.py", "overwrite the readme"]
+            ), patch(
+                "agent.chat", side_effect=[tool_reply, later_reply]
+            ) as chat, self.assertRaises(SystemExit) as exit_info:
+                with contextlib.redirect_stdout(banner):
+                    agent.main()
+
+        output = console.export_text()
+        self.assertEqual(exit_info.exception.code, agent.FORBIDDEN_EXIT_CODE)
+        self.assertEqual(chat.call_count, 1)
+        self.assertIn("[FORBIDDEN]", banner.getvalue())
+        self.assertNotIn("should never run", output)
+        # Rejection happens before any write, so the protected file is intact.
+        self.assertEqual(protected_file.read_text(encoding="utf-8"), original)
 
     def test_022_agent_blocks_external_write_edit_and_delete_requests(self):
         console = Console(record=True, width=120)
@@ -260,16 +373,22 @@ class SandboxAgentIntegrationTests(unittest.TestCase):
         }
         final_reply = {"choices": [{"message": {"content": "Finished", "tool_calls": []}}]}
 
+        banner = io.StringIO()
         with patch("agent.ui", UI(console=console)), patch(
             "agent.chat", side_effect=[tool_reply, final_reply]
-        ):
-            agent.agent_loop("try external file operations")
+        ) as chat, self.assertRaises(SystemExit) as exit_info:
+            with contextlib.redirect_stdout(banner):
+                agent.agent_loop("try external file operations")
 
         output = console.export_text()
         self.assertEqual(protected_file.read_text(encoding="utf-8"), original)
-        self.assertGreaterEqual(output.count("write/edit path must stay in work or logs"), 2)
-        self.assertIn("delete_file", output)
-        self.assertIn("Finished", output)
+        # The first forbidden write stops the run, so the edit and delete calls
+        # queued behind it are never executed or even reported.
+        self.assertIn("write/edit path must stay in work or logs", banner.getvalue())
+        self.assertNotIn("delete_file", output)
+        self.assertNotIn("Finished", output)
+        self.assertEqual(chat.call_count, 1)
+        self.assertEqual(exit_info.exception.code, agent.FORBIDDEN_EXIT_CODE)
 
 
 if __name__ == "__main__":

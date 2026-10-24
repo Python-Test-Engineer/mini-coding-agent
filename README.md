@@ -82,6 +82,14 @@ files in the repository-root `work/` directory, including when launched from
 This is a teaching demo with a **constrained local runner**, not a strong
 operating-system sandbox. The file tools can read any readable absolute path,
 but reject write/edit targets outside repository-root `work/` and `logs/`.
+`SandboxWorkspace.resolve_write_path()` is where that rule is decided: it
+expands `~` and environment variables, then refuses anything outside the two
+roots. Home- and system-relative requests count as outside, so `Desktop/notes.txt`,
+`~/Desktop/notes.txt`, and `%USERPROFILE%\notes.txt` are rejected instead of
+being created under `work/`. A blocked write or edit is fatal: it prints a red
+`[FORBIDDEN]` banner and exits with status `2` (`agent.FORBIDDEN_EXIT_CODE`)
+instead of letting the model retry the same request with another path. A
+rejected command is still returned to the model as a normal `ERROR: ...` result.
 The runner uses `shell=False`, an allowlist (`python` and `pytest` variants), a
 timeout, bounded output, and rejects parent/absolute command paths. Its child
 processes still run with the current user's permissions and are not

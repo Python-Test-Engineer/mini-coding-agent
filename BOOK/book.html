@@ -882,11 +882,35 @@ session start/stop, requested and completed tools, caught host errors, and
 general loop events. <code>EventLog</code> appends each record as one line, making the
 file easy to inspect or process with other tools.</p>
 <p>The agent still owns enforcement. When it catches <code>SandboxPathError</code> or
-<code>SandboxCommandError</code>, it asks the UI to show a configured status line before
-returning an <code>ERROR: ...</code> result to the model:</p>
+<code>SandboxCommandError</code>, it asks the UI to show a configured status line. A
+rejected command comes back to the model as an <code>ERROR: ...</code> result, which the
+model can correct on its next step:</p>
 <pre><code class="language-text">sandbox | [lock] path rejected - write/edit path must stay in work or logs
 lifecycle | [!] host error - tool_execute: write/edit path must stay in work or logs
 </code></pre>
+<p>A rejected <strong>write or edit</strong> target is decided in <code>sandbox.py</code>, and it is fatal
+rather than a tool error the model may retry.
+<code>SandboxWorkspace.resolve_write_path()</code> expands <code>~</code> and environment variables,
+maps <code>work/...</code> and <code>logs/...</code> onto their roots, and refuses everything else: it
+prints a red <code>[FORBIDDEN]</code> banner and raises <code>SandboxForbiddenError</code>, a subclass of
+<code>SandboxPathError</code>:</p>
+<pre><code class="language-text">[FORBIDDEN] write/edit path must stay in work or logs; blocked requested path: C:\Users\you\Desktop\notes.txt
+[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.
+</code></pre>
+<p>The banner is printed where the decision is made, so no caller can forget to
+report it. <code>SandboxWorkspace</code> accepts an optional <code>banner</code> argument, which lets
+tests and other hosts capture the message instead of printing it.</p>
+<p>A relative path that names a real home or system folder is an outside request,
+not a filename inside <code>work/</code>. <code>Desktop/notes.txt</code>, <code>~/Desktop/notes.txt</code>,
+<code>%USERPROFILE%\notes.txt</code>, and <code>Users/you/notes.txt</code> are all refused; without
+that rule Windows treats them as relative and quietly creates them under
+<code>work/Desktop</code>, <code>work/~</code>, and so on.</p>
+<p><code>agent_loop()</code> treats <code>SandboxForbiddenError</code> as fatal. It runs the turn hooks so
+the audit log records the blocked request, then raises
+<code>SystemExit(agent.FORBIDDEN_EXIT_CODE)</code>, which exits with status <code>2</code>. Neither the
+loop nor the interactive prompt continues, so the model never gets a chance to
+retry the same request with a slightly different path. A refused command, and a
+missing file, still return to the model as ordinary <code>ERROR: ...</code> results.</p>
 <p><code>UI.show_sandbox_status()</code> reads <code>sandbox_events</code> labels and styles from
 <code>ui.json</code>, so sandbox code does not print Rich formatting directly. The labels
 use portable ASCII markers such as <code>[box]</code>, <code>[lock]</code>, <code>[wait]</code>, and <code>[ok]</code>.</p>

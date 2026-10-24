@@ -144,6 +144,16 @@ write does not create a root-level `goodbye.py`.
 
 The path checks protect writes made through the harness's file tools, and the
 runner applies a command allowlist, avoids a shell, limits runtime and bounds
-output. This is a **constrained local runner**, not operating-system isolation:
+output. `SandboxWorkspace.resolve_write_path()` makes each decision and prints the
+red `[FORBIDDEN]` banner itself, then raises `SandboxForbiddenError` (a subclass
+of `SandboxPathError`) for any target outside `work/` and `logs/`. That includes
+home- and system-relative requests such as `Desktop/notes.txt` or
+`~/Desktop/notes.txt`, which would otherwise land under `work/`.
+
+The standalone example above catches `SandboxPathError` itself so it can keep
+demonstrating the next case, so its expected-failure run also shows the banner.
+The interactive agent treats the same error as fatal: it exits the process with
+status `2` (`agent.FORBIDDEN_EXIT_CODE`) instead of letting the model retry the
+request with a different path. This is a **constrained local runner**, not operating-system isolation:
 its child process still runs with the current user's permissions. Use trusted
 code for this workshop; use a container or VM before running untrusted code.

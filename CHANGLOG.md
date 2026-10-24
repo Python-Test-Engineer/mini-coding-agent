@@ -111,3 +111,26 @@ forward in a later commit.
   `%WINDIR%\Media\Windows Logon.wav` on Windows when the file is present.
 - `SandboxAuditHooks` calls the base hook and still records its session-start
   event. Other platforms and unavailable audio files continue without sound.
+
+## Forbidden writes stop the process
+
+- A `write_file` or `edit_file` target outside repository-root `work/` and
+  `logs/` is now fatal rather than a tool error the model can retry.
+  `SandboxWorkspace.resolve_write_path()` prints the red `[FORBIDDEN]` banner at
+  the point of detection, records a `write_forbidden` audit event, and raises
+  `SandboxForbiddenError` (a `SandboxPathError` subclass). `agent_loop()` then
+  raises `SystemExit(agent.FORBIDDEN_EXIT_CODE)` (status `2`) after the turn
+  hooks have run.
+- Fixed silent redirection into `work/`: requests such as `Desktop/notes.txt`,
+  `~/Desktop/notes.txt`, `%USERPROFILE%\notes.txt`, and `Users/me/notes.txt` are
+  relative on Windows, so they were previously created under `work/`. The
+  resolver now expands `~` and environment variables and treats a leading
+  home/system folder name as an outside request.
+- `SandboxWorkspace` accepts an optional `banner` callable so tests can capture
+  the message; the default prints red Rich text. `UI.show_forbidden()` was
+  removed because the sandbox module now owns the announcement.
+- Rejected commands and missing files still return an ordinary `ERROR: ...`
+  result to the model.
+- Updated `BOOK/CH02.md`, `BOOK/book.html`, `GUIDE/guide.html`, `README.md`, and
+  `EXAMPLES/EXAMPLES.md`, and added tests `test_021`-`test_025` for the banner,
+  the exit status, the stopped session, and home/system-relative rejection.

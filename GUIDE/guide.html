@@ -1487,14 +1487,24 @@ uv run agent.py "write a hello world script and run it"</code></pre>
           </aside>
         </div>
         <div class="code-panel" aria-label="Sandbox lifecycle example">
-          <div class="code-caption"><span>Unsafe path through the real loop</span><span>host error</span></div>
+          <div class="code-caption"><span>Unsafe path through the real loop</span><span>fatal</span></div>
           <pre><code>tool write_file({"path": "../outside.txt"})
 sandbox | [lock] path rejected - write/edit path must stay in work or logs
 lifecycle | [!] host error - tool_execute: write/edit path must stay in work or logs
-result ERROR: write/edit path must stay in work or logs
+[FORBIDDEN] write/edit path must stay in work or logs; blocked requested path: ../outside.txt
+[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.
 
 logs/agent-...jsonl
-{"event":"lifecycle.before_tool_execute","step":1,...}</code></pre>
+{"event":"lifecycle.before_tool_execute","step":1,...}
+
+process exit status: 2</code></pre>
+          <p class="section-intro"><code>SandboxWorkspace.resolve_write_path()</code> decides this and prints the red
+            banner itself, then raises <code>SandboxForbiddenError</code>. The request is fatal, not a tool error the
+            model may retry: <code>agent_loop()</code> raises <code>SystemExit(agent.FORBIDDEN_EXIT_CODE)</code> after the
+            turn hooks have recorded the blocked request, so the process stops before the model can try the same write
+            somewhere else. Home- and system-relative paths (<code>Desktop/x</code>, <code>~/Desktop/x</code>,
+            <code>Users/me/x</code>) count as outside and are no longer created under <code>work/</code>. A rejected
+            command is still returned as an ordinary <code>ERROR: ...</code> result.</p>
         </div>
         <p class="section-intro"><code>UI.show_sandbox_status()</code> formats these status lines from the
           <code>sandbox_events</code> labels and styles in <code>ui.json</code>. The sandbox module itself does not

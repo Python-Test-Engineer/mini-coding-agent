@@ -32,6 +32,7 @@ from sandbox import (
     SandboxAuditHooks,
     SandboxCommandError,
     SandboxError,
+    SandboxForbiddenError,
     SandboxPathError,
     SandboxWorkspace,
 )
@@ -43,6 +44,13 @@ ui = UI()
 # The default hook records each sandbox session and tool outcome. Applications
 # can replace it with their own Hooks subclass when they need other behaviour.
 hooks = SandboxAuditHooks()
+
+# A write or edit outside work/ and logs/ is a hard stop, not a retryable tool
+# error: the process prints a red [FORBIDDEN] banner and exits with this code.
+# A non-zero status lets scripts and CI treat a blocked write as a failure,
+# and exiting (rather than continuing the loop) makes it impossible to sneak
+# the same request through with a different path in the next step.
+FORBIDDEN_EXIT_CODE = 2
 
 # The host can write agent files only under work/ and append audit records only
 # under logs/. Reads may use an explicit absolute path outside those roots.
@@ -389,12 +397,11 @@ def agent_loop(
             except Exception as e:  # surface tool errors back to the model
                 _report_error(active_hooks, context, e, "tool_execute")
                 result = f"ERROR: {e}"
-                forbidden = isinstance(e, SandboxPathError) and name in {
-                    "write_file",
-                    "edit_file",
-                }
-                if forbidden:
-                    ui.show_forbidden(str(e))
+                # Only an outside write/edit target is fatal. A missing file or
+                # a refused command stays a normal tool error the model can fix.
+                # resolve_write_path() already printed the red FORBIDDEN banner
+                # at the point of detection, so nothing is printed here.
+                forbidden = isinstance(e, SandboxForbiddenError)
             else:
                 forbidden = False
             tool_status = "failed" if result.startswith("ERROR:") else "complete"
@@ -411,8 +418,13 @@ def agent_loop(
                 {"role": "tool", "tool_call_id": tc["id"], "content": result}
             )
             if forbidden:
-                # Stop this turn immediately so the model cannot retry the
-                # rejected request by silently changing its destination.
+                # A write/edit target outside work/ and logs/ stops the whole
+                # process. Turn hooks still run first so the audit log records
+                # the blocked request; then the program exits with a non-zero
+                # code. Raising SystemExit (not ``return``) is what makes this
+                # a hard stop: neither the loop nor the interactive prompt can
+                # continue, so the model never gets a chance to retry with a
+                # slightly different path.
                 output = f"Forbidden file operation: {result}"
                 _call_hook(
                     active_hooks,
@@ -431,7 +443,9 @@ def agent_loop(
                 )
                 ui.blank_line()
                 ui.show_done(metrics)
-                return
+                # Hard stop: exit the entire process with a failure status so
+                # nothing after this point can run in the same session.
+                raise SystemExit(FORBIDDEN_EXIT_CODE)
         ui.blank_line()
 
     _call_hook(active_hooks, "after_loop", context, "", detail="maximum steps reached")

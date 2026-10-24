@@ -9,13 +9,14 @@ container or VM runner before accepting untrusted prompts.
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, NoReturn, Protocol
 from uuid import uuid4
 
 from lifecycle import Hooks
@@ -27,6 +28,19 @@ class SandboxError(Exception):
 
 class SandboxPathError(SandboxError):
     """Raised when a requested file path is outside the dedicated workspace."""
+
+
+class SandboxForbiddenError(SandboxPathError):
+    """Raised when a write/edit target is provably outside work/ and logs/.
+
+    This is a policy violation, not a recoverable tool error: the host must
+    stop its loop when it sees this type. ``requested_path`` keeps the exact
+    string the model asked for so the caller can report or audit it.
+    """
+
+    def __init__(self, requested_path: str, detail: str) -> None:
+        super().__init__(detail)
+        self.requested_path = requested_path
 
 
 class SandboxCommandError(SandboxError):
@@ -74,10 +88,67 @@ class EventLog:
             log_file.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
+# Folder names a model uses when it means "somewhere outside work/". A relative
+# path starting with one of these is not a filename in the workspace: it is a
+# request for a real home or system folder, such as ``Desktop/notes.txt`` or
+# ``Users/me/notes.txt``, which Windows treats as relative only because it has
+# no drive letter. Without this check such a request was quietly created under
+# work/ instead of being refused.
+OUTSIDE_LOCATION_NAMES = frozenset(
+    {
+        "users",
+        "windows",
+        "program files",
+        "program files (x86)",
+        "programdata",
+        "desktop",
+        "documents",
+        "downloads",
+        "appdata",
+        "onedrive",
+        "library",
+        "system32",
+    }
+)
+
+
+def print_forbidden(detail: str) -> None:
+    """Print the red FORBIDDEN banner at the point where it is detected.
+
+    Detection lives in :meth:`SandboxWorkspace.resolve_write_path`, so the
+    banner is printed there instead of in the agent loop. Rich is used when it
+    is available and plain text otherwise, so the message still appears if the
+    demo runs without the workshop dependencies.
+    """
+    try:
+        from rich.console import Console
+        from rich.text import Text
+    except ImportError:  # pragma: no cover - Rich is a workshop dependency
+        print(f"[FORBIDDEN] {detail}")
+        print("[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.")
+        return
+
+    # A fresh console writes to the current sys.stdout, which keeps the banner
+    # capturable by tests and by any host that redirects its own output.
+    console = Console()
+    console.print(Text(f"[FORBIDDEN] {detail}", style="bold red"))
+    console.print(
+        Text(
+            "[FORBIDDEN] writes are limited to work/ and logs/ - stopping the agent.",
+            style="bold red",
+        )
+    )
+
+
 class SandboxWorkspace:
     """Allow writes only in ``work/`` and ``logs/``, while permitting reads."""
 
-    def __init__(self, root: Path, log_root: Path | None = None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        log_root: Path | None = None,
+        banner: Callable[[str], None] | None = None,
+    ) -> None:
         # ``root`` remains the command runner's current directory: work/.
         self.root = root.resolve()
         self.log_root = (log_root or self.root.parent / "logs").resolve()
@@ -85,6 +156,9 @@ class SandboxWorkspace:
         self.log_root.mkdir(parents=True, exist_ok=True)
         self.events: list[SandboxEvent] = []
         self.event_log = EventLog(self.log_root)
+        # Injecting the banner lets tests and other hosts capture the red
+        # message instead of printing it; the default prints to the terminal.
+        self.banner = banner or print_forbidden
 
     def record(self, kind: str, detail: str, step: int | None = None) -> None:
         """Keep a bounded-in-scope audit trail without mutating agent messages."""
@@ -108,27 +182,63 @@ class SandboxWorkspace:
             return False
         return True
 
+    def _forbid(self, requested_path: str, detail: str) -> NoReturn:
+        """Record, announce, and refuse an outside write in one place."""
+        self.record("write_forbidden", detail)
+        # The red banner is printed here, where the policy decision is made, so
+        # no caller can forget to report it.
+        self.banner(detail)
+        raise SandboxForbiddenError(requested_path, detail)
+
+    @staticmethod
+    def _looks_like_outside_location(candidate: Path) -> bool:
+        """Detect a home- or system-relative path the model meant literally."""
+        if not candidate.parts:
+            return False
+        first = candidate.parts[0].lower()
+        # An unexpanded "~", "$HOME", or "%USERPROFILE%" is still an outside
+        # request; treat it as one instead of creating a folder named "~".
+        if first.startswith(("~", "$", "%")):
+            return True
+        return first in OUTSIDE_LOCATION_NAMES
+
     def resolve_write_path(self, requested_path: str) -> Path:
-        """Return a work/log path or reject every other write/edit target."""
-        candidate = Path(requested_path)
+        """Return a work/log path, or refuse any write/edit target outside.
+
+        Every outside request prints the red FORBIDDEN banner and raises
+        :class:`SandboxForbiddenError`. Callers must stop their loop on that
+        error: unlike a missing file, it is a policy violation that must not be
+        retried with a different path.
+        """
         rejection = (
             "write/edit path must stay in work or logs; "
             f"blocked requested path: {requested_path}"
         )
+        # Expand "~" and environment variables first, so a home-relative request
+        # cannot be mistaken for an ordinary filename inside work/.
+        expanded = os.path.expandvars(os.path.expanduser(str(requested_path).strip()))
+        candidate = Path(expanded)
+
         if candidate.is_absolute():
             resolved = candidate.resolve(strict=False)
         elif candidate.drive:
-            raise SandboxPathError(rejection)
+            # "C:file.txt" is drive-relative and has surprising Windows
+            # semantics, so it is always an outside request.
+            self._forbid(requested_path, rejection)
         elif candidate.parts and candidate.parts[0].lower() == "logs":
             resolved = (self.log_root / Path(*candidate.parts[1:])).resolve(strict=False)
         elif candidate.parts and candidate.parts[0].lower() == "work":
             resolved = (self.root / Path(*candidate.parts[1:])).resolve(strict=False)
+        elif self._looks_like_outside_location(candidate):
+            # "Desktop/notes.txt" and "Users/me/notes.txt" are outside requests
+            # that only look relative; never turn them into work/ subfolders.
+            self._forbid(requested_path, rejection)
         else:
             # Bare relative paths preserve the workshop's usual ``hello.py`` API.
             resolved = (self.root / candidate).resolve(strict=False)
 
         if not self._is_writable_path(resolved):
-            raise SandboxPathError(rejection)
+            self._forbid(requested_path, rejection)
         return resolved
 
     def resolve_path(self, requested_path: str) -> Path:
