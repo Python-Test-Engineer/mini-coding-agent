@@ -30,6 +30,11 @@ above:
 - Added `GUIDE/agent-flow.html`, an animated walkthrough of successful and
   blocked tool flows, lifecycle callbacks, sandbox checks, and direct UI calls;
   linked it from the README and workshop guide.
+- Extracted the sound effects out of the source into `src/sounds.json`, keyed
+  by effect name with `sound_file`, `play`, and `location`. Added `src/sounds.py`,
+  which loads that catalogue and plays a named WAV when enabled. `src/lifecycle.py`
+  and `src/sandbox.py` now call it instead of hard-coding the WAV paths, so a
+  sound can be silenced or repointed with a config edit alone.
 
 ## Branch history note
 

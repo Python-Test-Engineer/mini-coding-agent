@@ -12,7 +12,8 @@ are sent back to the model until it returns a final answer.
   allowlisted command runner that does not start a shell.
 - Lifecycle traces and sandbox audit hooks around each tool execution.
 - On Windows, `%WINDIR%\Media\Windows Logon.wav` plays when a session begins,
-  if the file is present.
+  if the file is present. Sound effects are declared in `src/sounds.json` and
+  played through `src/sounds.py`.
 - A Rich terminal UI that displays model text, tool calls, and tool results.
 
 The code is split by responsibility. `src/agent.py` is the loop: it owns the

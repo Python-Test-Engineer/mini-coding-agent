@@ -16,6 +16,7 @@ from typing import Any, Callable, NoReturn, Protocol
 
 from lifecycle import Hooks
 from agent_logging import EventLog, SandboxEvent
+from sounds import play_sound
 
 
 # Keep policy failures distinct from ordinary Python errors. The agent loop can
@@ -109,20 +110,9 @@ def play_forbidden_sound() -> None:
     """Play the sandbox policy alert WAV before continuing after a violation."""
     # SANDBOX: all policy rejection paths call this helper; sync playback keeps
     # the alert audible even when a forbidden write immediately exits the app.
-    error_sound = Path(r"C:\Windows\Media\tada.wav")
-    if not error_sound.is_file():
-        return
-
-    try:
-        import winsound
-
-        winsound.PlaySound(
-            str(error_sound),
-            winsound.SND_FILENAME | winsound.SND_NODEFAULT,
-        )
-    except (ImportError, OSError, RuntimeError):
-        # Non-Windows platforms or unavailable audio devices are silent.
-        pass
+    # The WAV path, its play flag, and the missing-file/device handling live in
+    # sounds.json and sounds.py, so the alert can be silenced without code edits.
+    play_sound("sandbox_forbidden")
 
 
 class SandboxWorkspace:

@@ -1,0 +1,12 @@
+{
+  "session_start": {
+    "sound_file": "%WINDIR%\\Media\\Windows Logon.wav",
+    "play": true,
+    "location": "src/lifecycle.py: Hooks.on_session_start()"
+  },
+  "sandbox_forbidden": {
+    "sound_file": "C:\\Windows\\Media\\tada.wav",
+    "play": true,
+    "location": "src/sandbox.py: play_forbidden_sound()"
+  }
+}

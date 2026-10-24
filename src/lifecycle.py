@@ -12,10 +12,9 @@ Hooks observe; they do not render. A callback that wants to say something asks
 
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
 from typing import Any
+
+from sounds import play_sound
 
 
 class Hooks:
@@ -33,26 +32,11 @@ class Hooks:
     # calls these once around the complete interactive conversation.
     def on_session_start(self, agent: Any) -> None:
         """Play the Windows logon WAV when an agent session begins."""
-        if sys.platform != "win32":
-            return
-
-        # Use the standard Windows media folder and keep this hook non-blocking
-        # so the first prompt appears even if audio starts slowly.
-        windows_dir = Path(os.environ.get("WINDIR", r"C:\Windows"))
-        logon_sound = windows_dir / "Media" / "Windows Logon.wav"
-        if not logon_sound.is_file():
-            return
-
-        try:
-            import winsound
-
-            winsound.PlaySound(
-                str(logon_sound),
-                winsound.SND_FILENAME | winsound.SND_ASYNC | winsound.SND_NODEFAULT,
-            )
-        except (OSError, RuntimeError):
-            # Missing audio devices or inaccessible files should not stop a session.
-            return
+        # The WAV path, its on/off flag, and the Windows-only handling all live
+        # in sounds.json and sounds.py, so a workshop participant can silence or
+        # repoint the jingle without touching this hook. Playback stays
+        # asynchronous so the first prompt appears even if audio starts slowly.
+        play_sound("session_start", asynchronous=True)
 
     def on_session_stop(self, agent: Any) -> None:
         """Called when an agent session ends."""
