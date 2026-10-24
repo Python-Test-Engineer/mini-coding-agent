@@ -135,6 +135,10 @@ class UI:
             line.append(f" - {detail[:100]}", style=self.styles["sandbox_detail"])
         self.console.print(line)
 
+    def show_forbidden(self, detail: str) -> None:
+        """Make a blocked file operation unmistakable in the terminal."""
+        self.console.print(Text(f"[FORBIDDEN] {detail}", style="bold red"))
+
     def blank_line(self) -> None:
         self.console.print()
 

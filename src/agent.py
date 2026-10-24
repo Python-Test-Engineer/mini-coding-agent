@@ -158,6 +158,10 @@ TOOL_SCHEMAS = [
 SYSTEM_PROMPT = (
     "You are a minimal coding agent. You can write, edit and read files "
     "in work/ or logs/, read files when needed, and run allowlisted commands in work/. "
+    "Never redirect or silently change a requested write destination. If the user "
+    "asks to create or edit a file outside work/ or logs/, do not write it anywhere; "
+    "attempt the requested path only so the host can reject it and show a warning, "
+    "then explain that the operation was blocked. "
     "Work step by step: "
     "create the script, run it, fix any errors, and confirm the final output. "
     "Finish with a short plain-text summary of what you did."
@@ -385,6 +389,14 @@ def agent_loop(
             except Exception as e:  # surface tool errors back to the model
                 _report_error(active_hooks, context, e, "tool_execute")
                 result = f"ERROR: {e}"
+                forbidden = isinstance(e, SandboxPathError) and name in {
+                    "write_file",
+                    "edit_file",
+                }
+                if forbidden:
+                    ui.show_forbidden(str(e))
+            else:
+                forbidden = False
             tool_status = "failed" if result.startswith("ERROR:") else "complete"
             _call_hook(
                 active_hooks,
@@ -398,6 +410,28 @@ def agent_loop(
             messages.append(
                 {"role": "tool", "tool_call_id": tc["id"], "content": result}
             )
+            if forbidden:
+                # Stop this turn immediately so the model cannot retry the
+                # rejected request by silently changing its destination.
+                output = f"Forbidden file operation: {result}"
+                _call_hook(
+                    active_hooks,
+                    "after_loop",
+                    context,
+                    output,
+                    detail="forbidden file operation",
+                )
+                _call_hook(
+                    active_hooks,
+                    "after_input",
+                    context,
+                    prompt,
+                    output,
+                    detail="request blocked",
+                )
+                ui.blank_line()
+                ui.show_done(metrics)
+                return
         ui.blank_line()
 
     _call_hook(active_hooks, "after_loop", context, "", detail="maximum steps reached")

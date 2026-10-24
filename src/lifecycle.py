@@ -34,7 +34,7 @@ class Hooks:
 
         # Use the standard Windows media folder and keep this hook non-blocking.
         windows_dir = Path(os.environ.get("WINDIR", r"C:\Windows"))
-        logon_sound = windows_dir / "Media" / "Windows Logon.wav"
+        logon_sound = windows_dir / "Media" / "C:\Windows\Media\ding.wav"
         if not logon_sound.is_file():
             return
 
@@ -70,9 +70,7 @@ class Hooks:
     def after_brain_response(self, agent: Any, thought: dict) -> None:
         """Called immediately after a provider response is received."""
 
-    def before_tool_execute(
-        self, agent: Any, tool_name: str, arguments: dict
-    ) -> None:
+    def before_tool_execute(self, agent: Any, tool_name: str, arguments: dict) -> None:
         """Called before a requested tool is executed."""
 
     def after_tool_execute(self, agent: Any, tool_name: str, result: str) -> None:

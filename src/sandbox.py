@@ -111,10 +111,14 @@ class SandboxWorkspace:
     def resolve_write_path(self, requested_path: str) -> Path:
         """Return a work/log path or reject every other write/edit target."""
         candidate = Path(requested_path)
+        rejection = (
+            "write/edit path must stay in work or logs; "
+            f"blocked requested path: {requested_path}"
+        )
         if candidate.is_absolute():
             resolved = candidate.resolve(strict=False)
         elif candidate.drive:
-            raise SandboxPathError("write/edit path must stay in work or logs")
+            raise SandboxPathError(rejection)
         elif candidate.parts and candidate.parts[0].lower() == "logs":
             resolved = (self.log_root / Path(*candidate.parts[1:])).resolve(strict=False)
         elif candidate.parts and candidate.parts[0].lower() == "work":
@@ -124,7 +128,7 @@ class SandboxWorkspace:
             resolved = (self.root / candidate).resolve(strict=False)
 
         if not self._is_writable_path(resolved):
-            raise SandboxPathError("write/edit path must stay in work or logs")
+            raise SandboxPathError(rejection)
         return resolved
 
     def resolve_path(self, requested_path: str) -> Path:

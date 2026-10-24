@@ -1,1 +1,3 @@
 uv run agent.py "write a hello world script and run it 3 times and save as testXXXX.py where XXXX is a random number between 1000 and 9999 and add date time stamp as output in file"
+
+uv run agent.py "write a hello world script and save to the logs folder"
